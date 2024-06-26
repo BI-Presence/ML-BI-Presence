@@ -1,4 +1,6 @@
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 import numpy as np
 import pickle
 import cv2 as cv
@@ -8,28 +10,51 @@ from mtcnn.mtcnn import MTCNN
 from keras_facenet import FaceNet
 from datetime import datetime
 from rest_framework.parsers import MultiPartParser
-
-# Set TF_CPP_MIN_LOG_LEVEL to suppress unnecessary logs
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+import threading
 
 # Define directory path
-base_path = os.getcwd()
-pickle_path = os.path.normpath(base_path + os.sep + 'pickle')
-log_path = os.path.normpath(base_path + os.sep + 'log')
+BASE_PATH = os.getcwd()
+PICKLE_PATH = os.path.normpath(BASE_PATH + os.sep + 'pickle')
+CONFIG_PATH = os.path.normpath(BASE_PATH + os.sep + 'config')
 
 # Load Saved Model
-pickle_file = os.path.normpath(pickle_path + os.sep + 'fix_model_facenet_160x160.pkl')
+pickle_file = os.path.normpath(PICKLE_PATH + os.sep + 'fix_model_facenet_160x160.pkl')
 with open(pickle_file, 'rb') as f:
     fix_model_facenet = pickle.load(f)
 
 # Initialize MTCNN and FaceNet models
-img_detector = MTCNN()
-embedder = FaceNet()
+IMG_DETECTOR = MTCNN()
+EMBEDDER = FaceNet()
 
-# Load label encoder (when adding a new class or more classes, it is required to edit the label as well)
+# Load labels from a text file (when adding a new class or more classes, it is required to edit the file as well)
+def load_labels(LABEL_FILE_PATH):
+    with open(LABEL_FILE_PATH, 'r') as f:
+        labels = [line.strip() for line in f if line.strip()]
+    return labels
+
+# Load label encoder
 encoder = LabelEncoder()
-LABEL = ['abed', 'budi', 'gibran', 'iyal', 'vicky']
+label_file=os.path.normpath(CONFIG_PATH + os.sep + 'label.txt')
+LABEL = load_labels(label_file)
 encoder.fit(LABEL)
+
+# Pre-warm the models with a dummy image
+def warm_up_models():
+    # Create a dummy image
+    dummy_img = np.zeros((160, 160, 3), dtype=np.float32)
+    dummy_img_expanded = np.expand_dims(dummy_img, axis=0)
+    
+    # Warm-up FaceNet
+    EMBEDDER.embeddings(dummy_img_expanded)
+    print("FaceNet model warmed up.")
+    
+    # Warm-up MTCNN
+    dummy_img_uint8 = (dummy_img * 255).astype(np.uint8)  # Convert to uint8
+    IMG_DETECTOR.detect_faces(dummy_img_uint8)
+    print("MTCNN model warmed up.")
+
+# Warm-up the models in a separate thread
+threading.Thread(target=warm_up_models).start()
 
 def get_prediction(embedding):
     # Perform prediction
@@ -48,20 +73,20 @@ class Prediction:
 
         # Convert the uploaded image file to a NumPy array
         file_bytes = np.asarray(bytearray(image_file.read()), dtype=np.uint8)
-        t_img = cv.imdecode(file_bytes, cv.IMREAD_COLOR)
+        img = cv.imdecode(file_bytes, cv.IMREAD_COLOR)
 
         # Convert the image to RGB
-        t_img = cv.cvtColor(t_img, cv.COLOR_BGR2RGB)
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
 
         # Resize the image to the new size while maintaining aspect ratio
-        height, width, _ = t_img.shape
+        height, width, _ = img.shape
         scale = min(new_size[0] / width, new_size[1] / height)
         new_width = int(width * scale)
         new_height = int(height * scale)
-        resized_img = cv.resize(t_img, (new_width, new_height))
+        resized_img = cv.resize(img, (new_width, new_height))
 
         # Detect faces in the resized image
-        detections = img_detector.detect_faces(resized_img)
+        detections = IMG_DETECTOR.detect_faces(resized_img)
         if not detections:
             raise Exception("No faces detected in the image.")
 
@@ -75,7 +100,7 @@ class Prediction:
         h = int(h / scale)
 
         # Crop the detected face region from the original image using the bounding box coordinates
-        face_img = t_img[y:y+h, x:x+w]
+        face_img = img[y:y+h, x:x+w]
 
         # Resize the cropped face image to 160x160
         face_img = cv.resize(face_img, (160, 160))
@@ -83,9 +108,9 @@ class Prediction:
         # Get the embedding (feature vector) for the resized face image using FaceNet
         face_img = face_img.astype('float32')  # 3D (160x160x3)
         face_img = np.expand_dims(face_img, axis=0)  # 4D (1x160x160x3)
-        test_embedding = embedder.embeddings(face_img)[0]  # 512D image (1x512)
+        embedding = EMBEDDER.embeddings(face_img)[0]  # 512D image (1x512)
 
-        return test_embedding
+        return embedding
 
     def predict(self, request):
         # Initialize the return dictionary
@@ -98,10 +123,10 @@ class Prediction:
             image_file = request.FILES['media']
             
             # Preprocess the image
-            test_embedding = self.preprocess_image(image_file)
+            embedding = self.preprocess_image(image_file)
 
             # Make Prediction
-            predict, predict_proba = get_prediction(test_embedding)
+            predict, predict_proba = get_prediction(embedding)
 
             # Decode the prediction
             predicted_label = encoder.inverse_transform(predict)[0]
