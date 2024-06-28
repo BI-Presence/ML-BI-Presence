@@ -11,6 +11,7 @@ from keras_facenet import FaceNet
 from datetime import datetime
 from rest_framework.parsers import MultiPartParser
 import threading
+from model_api.models import SaveImagesModel
 
 # Define directory path
 BASE_PATH = os.getcwd()
@@ -56,6 +57,7 @@ def warm_up_models():
 # Warm-up the models in a separate thread
 threading.Thread(target=warm_up_models).start()
 
+# Get prediction result
 def get_prediction(embedding):
     # Perform prediction
     predict = fix_model_facenet.predict([embedding])
@@ -73,7 +75,17 @@ class Prediction:
 
         # Convert the uploaded image file to a NumPy array
         file_bytes = np.asarray(bytearray(image_file.read()), dtype=np.uint8)
+
+        # Debug: Check if file_bytes is empty or malformed
+        if len(file_bytes) == 0:
+            raise Exception("Empty or corrupted image file.")
+
+        # Decode the image using OpenCV
         img = cv.imdecode(file_bytes, cv.IMREAD_COLOR)
+
+        # Check if the image decoding was successful
+        if img is None:
+            raise Exception("Failed to decode image.")
 
         # Convert the image to RGB
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
@@ -112,6 +124,16 @@ class Prediction:
 
         return embedding
 
+    def save_image_to_database(self, image_file):
+        # Save the image to the database
+        try:
+            # Create an instance of ImageModel and save the image
+            new_image = SaveImagesModel(fileName=image_file)
+            new_image.save()
+            return new_image  # Optionally return the saved instance for further processing
+        except Exception as e:
+            raise Exception(f"Failed to save image to database: {str(e)}")
+
     def predict(self, request):
         # Initialize the return dictionary
         return_dict = {}
@@ -128,6 +150,9 @@ class Prediction:
             # Make Prediction
             predict, predict_proba = get_prediction(embedding)
 
+            # Save the image to the database
+            saved_image = self.save_image_to_database(image_file)
+
             # Decode the prediction
             predicted_label = encoder.inverse_transform(predict)[0]
             confidence_score = predict_proba[0][predict[0]]
@@ -142,7 +167,8 @@ class Prediction:
             prediction_result = {
                 "UserID": predicted_label,
                 "timestamp": timestamp,
-                "confidence": float(confidence_score)  # Ensure confidence_score is a float
+                "confidence": float(confidence_score),  # Ensure confidence_score is a float
+                "imageID": saved_image.id
             }
 
             # Create result dictionary
