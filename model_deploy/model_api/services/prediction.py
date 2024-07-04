@@ -19,7 +19,7 @@ PICKLE_PATH = os.path.normpath(BASE_PATH + os.sep + 'pickle')
 CONFIG_PATH = os.path.normpath(BASE_PATH + os.sep + 'config')
 
 # Load Saved Model
-pickle_file = os.path.normpath(PICKLE_PATH + os.sep + 'fix_model_facenet_160x160.pkl')
+pickle_file = os.path.normpath(PICKLE_PATH + os.sep + 'updated_fix_model_facenet_160x160.pkl')
 with open(pickle_file, 'rb') as f:
     fix_model_facenet = pickle.load(f)
 
@@ -35,7 +35,7 @@ def load_labels(LABEL_FILE_PATH):
 
 # Load label encoder
 encoder = LabelEncoder()
-label_file=os.path.normpath(CONFIG_PATH + os.sep + 'label.txt')
+label_file=os.path.normpath(CONFIG_PATH + os.sep + 'labels.txt')
 LABEL = load_labels(label_file)
 encoder.fit(LABEL)
 
