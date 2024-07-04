@@ -35,7 +35,7 @@ def load_labels(LABEL_FILE_PATH):
 
 # Load label encoder
 encoder = LabelEncoder()
-label_file=os.path.normpath(CONFIG_PATH + os.sep + 'labels.txt')
+label_file = os.path.normpath(CONFIG_PATH + os.sep + 'labels.txt')
 LABEL = load_labels(label_file)
 encoder.fit(LABEL)
 
@@ -130,7 +130,11 @@ class Prediction:
             # Create an instance of ImageModel and save the image
             new_image = SaveImagesModel(fileName=image_file)
             new_image.save()
-            return new_image  # Optionally return the saved instance for further processing
+            
+            # Generate the URL for the saved image
+            image_url = f'/media/{new_image.fileName}'
+            
+            return new_image, image_url  # Optionally return the saved instance and URL for further processing
         except Exception as e:
             raise Exception(f"Failed to save image to database: {str(e)}")
 
@@ -150,8 +154,8 @@ class Prediction:
             # Make Prediction
             predict, predict_proba = get_prediction(embedding)
 
-            # Save the image to the database
-            saved_image = self.save_image_to_database(image_file)
+            # Save the image to the database and get the URL
+            saved_image, image_url = self.save_image_to_database(image_file)
 
             # Decode the prediction
             predicted_label = encoder.inverse_transform(predict)[0]
@@ -161,14 +165,11 @@ class Prediction:
             if confidence_score < 0.5:
                 predicted_label = "unknown"
 
-            timestamp = datetime.now().isoformat()
-
             # Create prediction result dictionary
             prediction_result = {
                 "UserID": predicted_label,
-                "timestamp": timestamp,
                 "confidence": float(confidence_score),  # Ensure confidence_score is a float
-                "imageID": saved_image.id
+                "imageURL": image_url
             }
 
             # Create result dictionary
