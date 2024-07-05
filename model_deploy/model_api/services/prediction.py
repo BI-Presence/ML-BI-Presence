@@ -2,26 +2,22 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 import numpy as np
-import pickle
 import cv2 as cv
+import tensorflow as tf
+import tensorflow_hub as hub
 from rest_framework import status
 from sklearn.preprocessing import LabelEncoder
 from mtcnn.mtcnn import MTCNN
 from keras_facenet import FaceNet
-from datetime import datetime
 from rest_framework.parsers import MultiPartParser
 import threading
 from model_api.models import SaveImagesModel
 
 # Define directory path
 BASE_PATH = os.getcwd()
-PICKLE_PATH = os.path.normpath(BASE_PATH + os.sep + 'pickle')
+MODEL_H5_PATH = os.path.normpath(BASE_PATH + os.sep + 'model_h5'+ os.sep + 'updated_mtcnn_facenet_mlp_model.h5')
+MODEL = tf.keras.models.load_model(MODEL_H5_PATH, compile=False, custom_objects={'KerasLayer': hub.KerasLayer})
 CONFIG_PATH = os.path.normpath(BASE_PATH + os.sep + 'config')
-
-# Load Saved Model
-pickle_file = os.path.normpath(PICKLE_PATH + os.sep + 'updated_fix_model_facenet_160x160.pkl')
-with open(pickle_file, 'rb') as f:
-    fix_model_facenet = pickle.load(f)
 
 # Initialize MTCNN and FaceNet models
 IMG_DETECTOR = MTCNN()
@@ -59,19 +55,32 @@ threading.Thread(target=warm_up_models).start()
 
 # Get prediction result
 def get_prediction(embedding):
-    # Perform prediction
-    predict = fix_model_facenet.predict([embedding])
-    predict_proba = fix_model_facenet.predict_proba([embedding])
-    return predict, predict_proba
+    # Convert the embedding to the correct shape (2D array)
+    embedding = np.expand_dims(embedding, axis=0)
+    
+    # Make Prediction
+    predict_proba = MODEL.predict(embedding)[0]
+    predicted_class = np.argmax(predict_proba)
+    predicted_label = encoder.inverse_transform([predicted_class])[0]
+    confidence_score = predict_proba[predicted_class]
+
+    # Check confidence score and determine if the prediction should be considered unknown
+    if confidence_score < 0.9:
+        predicted_label = "unknown"
+
+    # Convert confidence score to percentage
+    confidence_percentage = confidence_score * 100
+
+    return predicted_label, confidence_percentage
 
 class Prediction:
     # Set the parser classes to handle multipart file uploads
     parser_classes = [MultiPartParser]
 
     def preprocess_image(self, image_file, new_size=(480, 480)):
-        file_extension = os.path.splitext(image_file.name)[1].lower()
-        if file_extension not in ['.jpg', '.jpeg', '.png']:
-            raise Exception("Unsupported file type.")
+        # file_extension = os.path.splitext(image_file.name)[1].lower()
+        # if file_extension not in ['.jpg', '.jpeg', '.png']:
+        #     raise Exception("Unsupported file type.")
 
         # Convert the uploaded image file to a NumPy array
         file_bytes = np.asarray(bytearray(image_file.read()), dtype=np.uint8)
@@ -152,23 +161,15 @@ class Prediction:
             embedding = self.preprocess_image(image_file)
 
             # Make Prediction
-            predict, predict_proba = get_prediction(embedding)
+            predicted_label, confidence_score = get_prediction(embedding)
 
             # Save the image to the database and get the URL
             saved_image, image_url = self.save_image_to_database(image_file)
 
-            # Decode the prediction
-            predicted_label = encoder.inverse_transform(predict)[0]
-            confidence_score = predict_proba[0][predict[0]]
-
-            # Check confidence score and determine if the prediction should be considered unknown
-            if confidence_score < 0.5:
-                predicted_label = "unknown"
-
             # Create prediction result dictionary
             prediction_result = {
                 "UserID": predicted_label,
-                "confidence": float(confidence_score),  # Ensure confidence_score is a float
+                "confidence": confidence_score,  # Ensure confidence_score is in percentage
                 "imageURL": image_url
             }
 
