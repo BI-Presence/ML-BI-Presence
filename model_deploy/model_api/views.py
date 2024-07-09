@@ -19,19 +19,16 @@ def detect_faces_camera(request):
     # Initialize OpenCV Cascade Classifier
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-    # Maximum number of predictions
-    max_predictions = 10
+    # Maximum number of predictions before sleep
+    sleep_after_predictions = 10
     prediction_count = 0
     prediction_ids = []
 
-    # Function to generate frames from camer
+    # Function to generate frames from camera
     def gen_frames():
         nonlocal prediction_count, prediction_ids
         cap = cv2.VideoCapture(0)
         while True:
-            if prediction_count >= max_predictions:
-                break
-
             ret, frame = cap.read()
             if not ret:
                 break
@@ -50,10 +47,22 @@ def detect_faces_camera(request):
                 result = classify_face(face_bytes)
                 print(result)  # Log the classification result to the console
 
-                # Collect prediction result and update count
-                if 'UserID' in result:
-                    prediction_ids.append(result['UserID'])
+                # Collect prediction result and update count if the UserID is not "unknown"
+                if 'predictionResult' in result and result['predictionResult']['UserID'] != 'unknown':
+                    prediction_ids.append(result['predictionResult']['UserID'])
                     prediction_count += 1
+
+            # Sleep for 3 seconds after every 10 predictions
+            if prediction_count > 0 and prediction_count % sleep_after_predictions == 0:
+
+                # Determine the most common UserID
+                if prediction_ids:
+                    most_common_id = Counter(prediction_ids).most_common(1)[0][0]
+                    print(f"Most common UserID: {most_common_id}")
+
+                time.sleep(3)
+                prediction_count = 0
+                prediction_ids = []
 
             # Convert frame to JPEG format for web display
             _, jpeg = cv2.imencode('.jpg', frame)
@@ -66,10 +75,14 @@ def detect_faces_camera(request):
         if prediction_ids:
             most_common_id = Counter(prediction_ids).most_common(1)[0][0]
             print(f"Most common UserID: {most_common_id}")
+            yield (b'--frame\r\n'
+                   b'Content-Type: application/json\r\n\r\n' + 
+                   bytes(JsonResponse({"UserID": most_common_id}).content) + b'\r\n')
         else:
             print("No UserID detected.")
 
-    return StreamingHttpResponse(gen_frames(), content_type='multipart/x-mixed-replace; boundary=frame')
+    response = StreamingHttpResponse(gen_frames(), content_type='multipart/x-mixed-replace; boundary=frame')
+    return response
 
 def classify_face(face_bytes):
     prediction_obj = Prediction()
