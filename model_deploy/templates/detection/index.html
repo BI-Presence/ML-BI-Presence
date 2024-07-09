@@ -2,9 +2,46 @@
 <html>
 <head>
     <title>Face Recognition Camera Feed</title>
+    <style>
+        #loading {
+            display: none;
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            font-weight: bold;
+            color: #000;
+        }
+    </style>
+    <script>
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        async function classifyFace(faceImage) {
+            showLoading();
+            const formData = new FormData();
+            formData.append('media', faceImage);
+
+            const response = await fetch("{% url 'classify-face' %}", {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            console.log(result);
+            hideLoading();
+        }
+    </script>
 </head>
 <body>
     <h1>Face Recognition Camera Feed</h1>
-    <img src="{% url 'detect_faces_camera' %}" />
+    <div id="loading">Classifying...</div>
+    <img src="{% url 'detect_faces_camera' %}" onload="classifyFace(this.src)" />
 </body>
 </html>

@@ -1,13 +1,12 @@
 from django.shortcuts import render
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response 
-from rest_framework.views import APIView
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from model_api.services.prediction import Prediction
 import cv2
-from django.shortcuts import render
-from django.http import StreamingHttpResponse
+from django.http import StreamingHttpResponse, JsonResponse, HttpRequest
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 # Index
 def index(request):
@@ -21,7 +20,6 @@ def detect_faces_camera(request):
     # Function to generate frames from camera
     def gen_frames():
         cap = cv2.VideoCapture(0)
-
         while True:
             ret, frame = cap.read()
             if not ret:
@@ -34,6 +32,13 @@ def detect_faces_camera(request):
             # Draw rectangles around detected faces
             for (x, y, w, h) in faces:
                 cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+                # Pause the video feed and classify the detected face
+                face_img = frame[y:y+h, x:x+w]
+                _, jpeg = cv2.imencode('.jpg', face_img)
+                face_bytes = jpeg.tobytes()
+                result = classify_face(face_bytes)
+                print(result)  # Log the classification result to the console
+                break  # Pause after the first face is detected
 
             # Convert frame to JPEG format for web display
             _, jpeg = cv2.imencode('.jpg', frame)
@@ -44,60 +49,11 @@ def detect_faces_camera(request):
 
     return StreamingHttpResponse(gen_frames(), content_type='multipart/x-mixed-replace; boundary=frame')
 
-# Testing with Camera
-
-class PredFacenetView(APIView): 
-    parser_classes = (MultiPartParser, FormParser)
-
-    @swagger_auto_schema(
-        # operation_description="Upload an image file to get a prediction.",
-        manual_parameters=[
-            openapi.Parameter(
-                name='media', 
-                in_=openapi.IN_FORM, 
-                type=openapi.TYPE_FILE, 
-                description='Image file',
-                required=True
-            )
-        ],
-        responses={
-            200: openapi.Response(
-                'Success', 
-                openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING, description='Error status'),
-                        'message': openapi.Schema(type=openapi.TYPE_STRING, description='Message'),
-                        'predictionResult': openapi.Schema(
-                            type=openapi.TYPE_OBJECT,
-                            properties={
-                                'UserID': openapi.Schema(type=openapi.TYPE_STRING, description='User ID'),
-                                'timestamp': openapi.Schema(type=openapi.TYPE_STRING, description='Timestamp'),
-                                'confidence': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, description='Confidence level'),
-                                'imageID': openapi.Schema(type=openapi.TYPE_INTEGER, description='Image ID'),
-                            }
-                        )
-                    }
-                ),
-                examples={
-                    'application/json': {
-                        "error": "false",
-                        "message": "success",
-                        "predictionResult": {
-                            "UserID": "vicky",
-                            "timestamp": "2024-07-03T14:05:49.439126",
-                            "confidence": 0.9121062518765518,
-                            "imageID": 13
-                        }
-                    }
-                }
-            ),
-            400: 'Bad Request',
-        }
-    )
-    def post(self, request):
-        pred_obj = Prediction()
-        response_dict = pred_obj.predict(request)
-        response = response_dict['response']
-        status_value = response_dict['status']
-        return Response(response, status=status_value)
+def classify_face(face_bytes):
+    prediction_obj = Prediction()
+    face_file = SimpleUploadedFile("detected_face.jpg", face_bytes, content_type="image/jpeg")
+    mock_request = HttpRequest()
+    mock_request.method = 'POST'
+    mock_request.FILES['media'] = face_file
+    response_dict = prediction_obj.predict(mock_request)
+    return response_dict['response']

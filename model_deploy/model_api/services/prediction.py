@@ -20,7 +20,6 @@ MODEL = tf.keras.models.load_model(MODEL_H5_PATH, compile=False, custom_objects=
 CONFIG_PATH = os.path.normpath(BASE_PATH + os.sep + 'config')
 
 # Initialize MTCNN and FaceNet models
-IMG_DETECTOR = MTCNN()
 EMBEDDER = FaceNet()
 
 # Load labels from a text file (when adding a new class or more classes, it is required to edit the file as well)
@@ -44,11 +43,6 @@ def warm_up_models():
     # Warm-up FaceNet
     EMBEDDER.embeddings(dummy_img_expanded)
     print("FaceNet model warmed up.")
-    
-    # Warm-up MTCNN
-    dummy_img_uint8 = (dummy_img * 255).astype(np.uint8)  # Convert to uint8
-    IMG_DETECTOR.detect_faces(dummy_img_uint8)
-    print("MTCNN model warmed up.")
 
 # Warm-up the models in a separate thread
 threading.Thread(target=warm_up_models).start()
@@ -77,7 +71,7 @@ class Prediction:
     # Set the parser classes to handle multipart file uploads
     parser_classes = [MultiPartParser]
 
-    def preprocess_image(self, image_file, new_size=(480, 480)):
+    def preprocess_image(self, image_file):
         # file_extension = os.path.splitext(image_file.name)[1].lower()
         # if file_extension not in ['.jpg', '.jpeg', '.png']:
         #     raise Exception("Unsupported file type.")
@@ -99,32 +93,8 @@ class Prediction:
         # Convert the image to RGB
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
 
-        # Resize the image to the new size while maintaining aspect ratio
-        height, width, _ = img.shape
-        scale = min(new_size[0] / width, new_size[1] / height)
-        new_width = int(width * scale)
-        new_height = int(height * scale)
-        resized_img = cv.resize(img, (new_width, new_height))
-
-        # Detect faces in the resized image
-        detections = IMG_DETECTOR.detect_faces(resized_img)
-        if not detections:
-            raise Exception("No faces detected in the image.")
-
-        # Extract the coordinates and size of the bounding box from the first detection result
-        x, y, w, h = detections[0]['box']
-
-        # Scale the coordinates back to the original image size
-        x = int(x / scale)
-        y = int(y / scale)
-        w = int(w / scale)
-        h = int(h / scale)
-
-        # Crop the detected face region from the original image using the bounding box coordinates
-        face_img = img[y:y+h, x:x+w]
-
         # Resize the cropped face image to 160x160
-        face_img = cv.resize(face_img, (160, 160))
+        face_img = cv.resize(img, (160, 160))
 
         # Get the embedding (feature vector) for the resized face image using FaceNet
         face_img = face_img.astype('float32')  # 3D (160x160x3)
@@ -133,19 +103,19 @@ class Prediction:
 
         return embedding
 
-    def save_image_to_database(self, image_file):
-        # Save the image to the database
-        try:
-            # Create an instance of ImageModel and save the image
-            new_image = SaveImagesModel(fileName=image_file)
-            new_image.save()
+    # def save_image_to_database(self, image_file):
+    #     # Save the image to the database
+    #     try:
+    #         # Create an instance of ImageModel and save the image
+    #         new_image = SaveImagesModel(fileName=image_file)
+    #         new_image.save()
             
-            # Generate the URL for the saved image
-            image_url = f'/media/{new_image.fileName}'
+    #         # Generate the URL for the saved image
+    #         image_url = f'/media/{new_image.fileName}'
             
-            return new_image, image_url  # Optionally return the saved instance and URL for further processing
-        except Exception as e:
-            raise Exception(f"Failed to save image to database: {str(e)}")
+    #         return new_image, image_url  # Optionally return the saved instance and URL for further processing
+    #     except Exception as e:
+    #         raise Exception(f"Failed to save image to database: {str(e)}")
 
     def predict(self, request):
         # Initialize the return dictionary
@@ -164,13 +134,13 @@ class Prediction:
             predicted_label, confidence_score = get_prediction(embedding)
 
             # Save the image to the database and get the URL
-            saved_image, image_url = self.save_image_to_database(image_file)
+            # saved_image, image_url = self.save_image_to_database(image_file)
 
             # Create prediction result dictionary
             prediction_result = {
                 "UserID": predicted_label,
                 "confidence": confidence_score,  # Ensure confidence_score is in percentage
-                "imageURL": image_url
+                # "imageURL": image_url
             }
 
             # Create result dictionary
