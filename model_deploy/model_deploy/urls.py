@@ -37,9 +37,10 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('',views.index, name='index'),
     path('admin/', admin.site.urls),
-    # path('prediction/', views.PredFacenetView.as_view(), name = 'prediction'),
-    path('detect-faces/', views.detect_faces_camera, name='detect_faces_camera'),
-    path('classify-face/', views.classify_face, name='classify-face'),
-    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+    path('train-model', views.TrainModelView.as_view(), name='train_model'),
+    path('prediction', views.PredFacenetView.as_view(), name = 'prediction'),
+    path('detect-faces', views.detect_faces_camera, name='detect_faces_camera'),
+    path('classify-face', views.classify_face, name='classify-face'),
+    path('swagger', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    path('redoc', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
