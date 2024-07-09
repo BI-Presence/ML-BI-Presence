@@ -3,10 +3,9 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import Normalizer
-from tensorflow.python.keras.layers import Dense
-from tensorflow.keras.models import Sequential # type: ignore[import]
-from tensorflow.keras.layers import Dense, Dropout # type: ignore[import]
-from tensorflow.keras.utils import to_categorical # type: ignore[import]
+from tensorflow.python.keras.layers import Dense, Dropout
+from tensorflow.python.keras.models import Sequential
+from keras.utils import to_categorical
 from keras_facenet import FaceNet
 import cv2 as cv
 from mtcnn.mtcnn import MTCNN
