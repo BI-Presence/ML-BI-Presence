@@ -7,6 +7,8 @@ from model_api.services.prediction import Prediction
 import cv2
 from django.http import StreamingHttpResponse, JsonResponse, HttpRequest
 from django.core.files.uploadedfile import SimpleUploadedFile
+import time
+from collections import Counter
 
 # Index
 def index(request):
@@ -17,10 +19,19 @@ def detect_faces_camera(request):
     # Initialize OpenCV Cascade Classifier
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-    # Function to generate frames from camera
+    # Maximum number of predictions
+    max_predictions = 10
+    prediction_count = 0
+    prediction_ids = []
+
+    # Function to generate frames from camer
     def gen_frames():
+        nonlocal prediction_count, prediction_ids
         cap = cv2.VideoCapture(0)
         while True:
+            if prediction_count >= max_predictions:
+                break
+
             ret, frame = cap.read()
             if not ret:
                 break
@@ -38,7 +49,11 @@ def detect_faces_camera(request):
                 face_bytes = jpeg.tobytes()
                 result = classify_face(face_bytes)
                 print(result)  # Log the classification result to the console
-                break  # Pause after the first face is detected
+
+                # Collect prediction result and update count
+                if 'UserID' in result:
+                    prediction_ids.append(result['UserID'])
+                    prediction_count += 1
 
             # Convert frame to JPEG format for web display
             _, jpeg = cv2.imencode('.jpg', frame)
@@ -46,6 +61,13 @@ def detect_faces_camera(request):
 
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+        # Determine the most common UserID
+        if prediction_ids:
+            most_common_id = Counter(prediction_ids).most_common(1)[0][0]
+            print(f"Most common UserID: {most_common_id}")
+        else:
+            print("No UserID detected.")
 
     return StreamingHttpResponse(gen_frames(), content_type='multipart/x-mixed-replace; boundary=frame')
 

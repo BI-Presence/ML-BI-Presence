@@ -1,47 +1,98 @@
+{% load compress %} {% load static %}
+
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Face Recognition Camera Feed</title>
-    <style>
-        #loading {
-            display: none;
-            position: fixed;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 24px;
-            font-weight: bold;
-            color: #000;
-        }
-    </style>
-    <script>
-        function showLoading() {
-            document.getElementById('loading').style.display = 'block';
-        }
+  <title>Face Recognition Camera Feed</title>
+  <style>
+    #loading {
+      display: none;
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 24px;
+      font-weight: bold;
+      color: #000;
+    }
+  </style>
+  <script>
+    function showLoading() {
+      document.getElementById("loading").style.display = "block";
+    }
 
-        function hideLoading() {
-            document.getElementById('loading').style.display = 'none';
-        }
+    function hideLoading() {
+      document.getElementById("loading").style.display = "none";
+    }
 
-        async function classifyFace(faceImage) {
-            showLoading();
-            const formData = new FormData();
-            formData.append('media', faceImage);
+    async function classifyFace(faceImage) {
+      showLoading();
+      const formData = new FormData();
+      formData.append("media", faceImage);
 
-            const response = await fetch("{% url 'classify-face' %}", {
-                method: 'POST',
-                body: formData
-            });
+      const response = await fetch("{% url 'detect_faces_camera' %}", {
+        method: "POST",
+        body: formData,
+      });
 
-            const result = await response.json();
-            console.log(result);
-            hideLoading();
-        }
-    </script>
+      const result = await response.json();
+      console.log(result);  // Log the result to the console
+      hideLoading();
+
+      // Display the result on the frontend (example)
+      const resultElement = document.getElementById("result");
+      resultElement.innerHTML = `UserID: ${result.UserID}, Confidence: ${result.confidence}`;
+    }
+  </script>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  {% compress css %}
+  <link rel="stylesheet" href="{% static 'src/output.css' %}" />
+  {% endcompress %}
 </head>
 <body>
-    <h1>Face Recognition Camera Feed</h1>
-    <div id="loading">Classifying...</div>
-    <img src="{% url 'detect_faces_camera' %}" onload="classifyFace(this.src)" />
+  <div class="bg-primary w-screen h-screen flex justify-center items-center">
+    <!--  -->
+    <div class="bg-primary p-12 flex justify-center items-center min-h-screen">
+      <div class="w-4/5 lg:w-customFrame bg-white text-black rounded-3xl shadow-lg flex flex-col items-center py-5">
+        <!-- title -->
+        <img src="../static/assets/logo-bi.svg" alt="logo" class="mb-4 w-32" />
+        <h1 class="text-black text-center mb-4" style="font-size: 32px">
+          BI - Presence
+        </h1>
+
+        <div class="grid justify-items-center" style="width: max-content">
+          <!-- preview -->
+          <div class="flex items-center justify-center bg-white border-4 rounded-lg border-primary w-full md:w-96 h-96">
+            <img
+              class="w-full h-full object-cover object-center"
+              src="{% url 'detect_faces_camera' %}"
+              onload="classifyFace(this.src)"
+              alt="Camera Feed"
+            />
+          </div>
+          <!-- Display the result -->
+          <div id="result" class="text-black text-center mt-4"></div>
+        </div>
+        <!-- warning message -->
+        <div v-if="showWarning" class="text-red-500 col-span-2 mb-4">
+          {{ warningMessage }}
+        </div>
+      </div>
+      <!-- Modal and loading indicators -->
+      <ModalTemplate :visible="showModal && !loading" @update:visible="showModal = $event" judul="Presensi Berhasil">
+        <template #header> </template>
+        <template #footer>
+          <button @click="showModal = false" class="mt-4 bg-primary text-white px-4 py-2 rounded">
+            Close
+          </button>
+        </template>
+      </ModalTemplate>
+      <LoadingIndicator :visible="loading" />
+    </div>
+    <!--  -->
+  </div>
 </body>
 </html>

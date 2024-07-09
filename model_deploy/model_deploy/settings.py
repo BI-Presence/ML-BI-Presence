@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'model_api',
     'corsheaders',
+    'compressor',
 ]
 
 MIDDLEWARE = [
@@ -144,6 +145,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'
 
+COMPRESS_ROOT = BASE_DIR / 'static'
+ 
+COMPRESS_ENABLED = True
+ 
+STATICFILES_FINDERS = ('compressor.finders.CompressorFinder',)
 
 # from django.shortcuts import render
 # from rest_framework.parsers import MultiPartParser, FormParser
