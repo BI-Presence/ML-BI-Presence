@@ -5,12 +5,13 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from model_api.services.prediction import Prediction
 from model_api.services.training import train_model
-
+from model_api.services.live_predict import LivePrediction
 import cv2
 from django.http import StreamingHttpResponse, JsonResponse, HttpRequest
 from django.core.files.uploadedfile import SimpleUploadedFile
 import time
 from collections import Counter
+import threading
 from rest_framework.views import APIView
 
 # Index
@@ -88,7 +89,7 @@ def detect_faces_camera(request):
     return response
 
 def classify_face(face_bytes):
-    prediction_obj = Prediction()
+    prediction_obj = LivePrediction()
     face_file = SimpleUploadedFile("detected_face.jpg", face_bytes, content_type="image/jpeg")
     mock_request = HttpRequest()
     mock_request.method = 'POST'
@@ -153,13 +154,12 @@ class PredFacenetView(APIView):
         return Response(response, status=status_value)
 
 class TrainModelView(APIView):
-    parser_classes = (MultiPartParser, FormParser)
 
     @swagger_auto_schema(
         manual_parameters=[
             openapi.Parameter(
                 name='train',
-                in_=openapi.IN_FORM,
+                in_=openapi.IN_QUERY,
                 type=openapi.TYPE_BOOLEAN,
                 description='Set to True to trigger model training.',
                 required=True
@@ -171,13 +171,15 @@ class TrainModelView(APIView):
         }
     )
     def post(self, request):
-        train_param = request.data.get('train', '').lower()
+        train_param = request.query_params.get('train', '').lower()
 
         if train_param != 'true':
             return Response({'error': 'true', 'message': 'Set "train" parameter to "true" to start training.'}, status=400)
 
         try:
-            train_model()
+            # Run train_model in a background thread
+            thread = threading.Thread(target=train_model)
+            thread.start()
             return Response({'message': 'Model training started.'}, status=200)
         except Exception as e:
             return Response({'error': 'true', 'message': str(e)}, status=500)

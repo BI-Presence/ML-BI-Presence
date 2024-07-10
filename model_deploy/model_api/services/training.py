@@ -9,6 +9,7 @@ from keras.utils import to_categorical
 from keras_facenet import FaceNet
 import cv2 as cv
 from mtcnn.mtcnn import MTCNN
+import shutil
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 BASE_PATH = os.getcwd()
@@ -94,7 +95,9 @@ def train_model():
         EMBEDDED_X = []
         Y = []
 
-    print (Y)
+    # Print the number of elements in Y
+    print(f"Amount of data: {len(Y)}")
+
     # Initiate the FACELOADING class with the dataset directory path
     faceloading = FACELOADING(DATASET_PATH)
 
@@ -142,6 +145,7 @@ def train_model():
         for label in unique_labels:
             file.write(f"{label}\n")
 
+    print(f"Labels: {unique_labels}")
     print("Labels have been saved to 'labels.txt' file.")
 
     # Save the updated embeddings and labels into a compressed NumPy archive file (.npz)
@@ -186,18 +190,45 @@ def train_model():
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
     # Train the model
-    model.fit(X_train_norm, Y_train_categorical, epochs=100, batch_size=32, validation_data=(X_test_norm, Y_test_categorical))
+    history = model.fit(X_train_norm, Y_train_categorical, epochs=100, batch_size=32, validation_data=(X_test_norm, Y_test_categorical))
 
     # Evaluate the model
-    score = model.evaluate(X_test_norm, Y_test_categorical, verbose=0)
-    print(f'Test loss: {score[0]} / Test accuracy: {score[1]}')
+    # score = model.evaluate(X_test_norm, Y_test_categorical, verbose=0)
+    # print(f'Test loss: {score[0]} / Test accuracy: {score[1]}')
+
+    # Evaluate the model 
+    train_loss = history.history['loss'][-1]
+    train_accuracy = history.history['accuracy'][-1]
+    val_loss = history.history['val_loss'][-1]
+    val_accuracy = history.history['val_accuracy'][-1]
+
+    # Print training loss and accuracy
+    print(f'Train loss: {train_loss} / Train accuracy: {train_accuracy}')
+
+    # Print validation (test) loss and accuracy
+    print(f'Validation loss: {val_loss} / Validation accuracy: {val_accuracy}')
 
     # Save the model
     model_save_file = MODEL_H5_PATH
     model.save(model_save_file)
-
     print(f"Model saved to {model_save_file}")
 
+    # Clear the dataset folder
+    clear_dataset_folder()
+    print(f"Dataset folder cleared")
+
+
+def clear_dataset_folder():
+    # Remove all files and directories in the dataset folder
+    for filename in os.listdir(DATASET_PATH):
+        file_path = os.path.join(DATASET_PATH, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)  # Remove the file
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)  # Remove the directory
+        except Exception as e:
+            print(f'Failed to delete {file_path}. Reason: {e}')
 
 if __name__ == '__main__':
     train_model()
