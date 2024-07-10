@@ -97,11 +97,11 @@ def classify_face(face_bytes):
     response_dict = prediction_obj.predict(mock_request)
     return response_dict['response']
 
-class PredFacenetView(APIView): 
+class PredFacenetView(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
     @swagger_auto_schema(
-        # operation_description="Upload an image file to get a prediction.",
+        tags=['Prediction'],
         manual_parameters=[
             openapi.Parameter(
                 name='media', 
@@ -154,8 +154,8 @@ class PredFacenetView(APIView):
         return Response(response, status=status_value)
 
 class TrainModelView(APIView):
-
     @swagger_auto_schema(
+        tags=['Train model'],
         manual_parameters=[
             openapi.Parameter(
                 name='train',
@@ -166,8 +166,52 @@ class TrainModelView(APIView):
             )
         ],
         responses={
-            200: 'Model training started.',
-            400: 'Bad Request',
+            200: openapi.Response(
+                'Model training started.',
+                openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, description='Message')
+                    }
+                ),
+                examples={
+                    'application/json': {
+                        "message": "Model training started."
+                    }
+                }
+            ),
+            400: openapi.Response(
+                'Bad Request',
+                openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, description='Error status'),
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, description='Message')
+                    }
+                ),
+                examples={
+                    'application/json': {
+                        "error": "true",
+                        "message": 'Set "train" parameter to "true" to start training.'
+                    }
+                }
+            ),
+            500: openapi.Response(
+                'Internal Server Error',
+                openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, description='Error status'),
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, description='Message')
+                    }
+                ),
+                examples={
+                    'application/json': {
+                        "error": "true",
+                        "message": "Error message details"
+                    }
+                }
+            )
         }
     )
     def post(self, request):
@@ -183,3 +227,4 @@ class TrainModelView(APIView):
             return Response({'message': 'Model training started.'}, status=200)
         except Exception as e:
             return Response({'error': 'true', 'message': str(e)}, status=500)
+
