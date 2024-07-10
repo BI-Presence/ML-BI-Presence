@@ -192,7 +192,7 @@ class TrainModelView(APIView):
                 examples={
                     'application/json': {
                         "error": "true",
-                        "message": 'Set "train" parameter to "true" to start training.'
+                        "message": 'Set train parameter to true to start training.'
                     }
                 }
             ),
@@ -218,13 +218,13 @@ class TrainModelView(APIView):
         train_param = request.query_params.get('train', '').lower()
 
         if train_param != 'true':
-            return Response({'error': 'true', 'message': 'Set "train" parameter to "true" to start training.'}, status=400)
+            return Response({'error': 'true', 'message': 'Set the train parameter to true to start training.'}, status=400)
 
         try:
             # Run train_model in a background thread
             thread = threading.Thread(target=train_model)
             thread.start()
-            return Response({'message': 'Model training started.'}, status=200)
+            return Response({'error': 'false', 'message': 'Model training started.'}, status=200)
         except Exception as e:
             return Response({'error': 'true', 'message': str(e)}, status=500)
 
