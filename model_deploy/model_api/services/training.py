@@ -10,17 +10,18 @@ from keras_facenet import FaceNet
 import cv2 as cv
 from mtcnn.mtcnn import MTCNN
 import shutil
+import requests
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 BASE_PATH = os.getcwd()
 CONFIG_PATH = os.path.normpath(BASE_PATH + os.sep + 'config')
 DATASET_PATH = os.path.normpath(BASE_PATH + os.sep + 'dataset')
-MODEL_H5_PATH = os.path.normpath(BASE_PATH + os.sep + 'model_h5'+ os.sep + 'updated_mtcnn_facenet_mlp_model.h5')
+MODEL_H5_PATH = os.path.normpath(BASE_PATH + os.sep + 'model_h5' + os.sep + 'updated_mtcnn_facenet_mlp_model.h5')
 
 class FACELOADING:
     def __init__(self, directory):
         self.directory = directory
-        self.target_size = (160,160)
+        self.target_size = (160, 160)
         self.X = []
         self.Y = []
         self.detector = MTCNN()
@@ -83,139 +84,170 @@ class FACELOADING:
 
         return np.asarray(self.X), np.asarray(self.Y)
 
+def check_new_uid():
+    try:
+        NEW_UID = os.listdir(DATASET_PATH)
+        if not NEW_UID:
+            return None
+        NEW_UID.sort()
+        return np.array(NEW_UID)
+    except Exception as e:
+        print(f"Error accessing or listing folders in DATASET_PATH: {e}")
+        return None
 
 def train_model():
-    # Load faces_embedding (feature vector)
+
+    # Get list of folders (classes) in DATASET_PATH
+    new_uid = check_new_uid()
+    print (new_uid)
+
+    # set status to on proses
+    train_status = 0
+    send_api_request(new_uid, train_status)
+
     try:
-        embeddings_file = os.path.normpath(CONFIG_PATH + os.sep + 'updated_faces_embeddings_done.npz')
-        data = np.load(embeddings_file)
-        EMBEDDED_X = list(data['arr_0'])
-        Y = list(data['arr_1'])
-    except FileNotFoundError:
-        EMBEDDED_X = []
-        Y = []
+        # Load faces_embedding (feature vector)
+        try:
+            embeddings_file = os.path.normpath(CONFIG_PATH + os.sep + 'updated_faces_embeddings_done.npz')
+            data = np.load(embeddings_file)
+            EMBEDDED_X = list(data['arr_0'])
+            Y = list(data['arr_1'])
+        except FileNotFoundError:
+            EMBEDDED_X = []
+            Y = []
 
-    # Print the number of elements in Y
-    print(f"Amount of data: {len(Y)}")
+        # Print the number of elements in Y
+        print(f"Amount of data: {len(Y)}")
 
-    # Initiate the FACELOADING class with the dataset directory path
-    faceloading = FACELOADING(DATASET_PATH)
+        # Initiate the FACELOADING class with the dataset directory path
+        faceloading = FACELOADING(DATASET_PATH)
 
-    # Load the face images (X) and their corresponding labels (Y) from the dataset
-    X, new_Y = faceloading.load_classes()
+        # Load the face images (X) and their corresponding labels (Y) from the dataset
+        X, new_Y = faceloading.load_classes()
 
-    # Instantiate the FaceNet model
-    embedder = FaceNet()
+        # Instantiate the FaceNet model
+        embedder = FaceNet()
 
-    # Define a function to get the embedding of a face image
-    def get_embedding(face_img):
-        face_img = face_img.astype('float32') # 3D(160x160x3)
-        face_img = np.expand_dims(face_img, axis=0)
-        yhat= embedder.embeddings(face_img)
-        return yhat[0] # 512D image (1x1x512)
+        # Define a function to get the embedding of a face image
+        def get_embedding(face_img):
+            face_img = face_img.astype('float32')  # 3D(160x160x3)
+            face_img = np.expand_dims(face_img, axis=0)
+            yhat = embedder.embeddings(face_img)
+            return yhat[0]  # 512D image (1x1x512)
 
-    # Loop through each image in the dataset X to get the embedding for the current image and append it to the list
-    for img in X:
-        EMBEDDED_X.append(get_embedding(img))
+        # Loop through each image in the dataset X to get the embedding for the current image and append it to the list
+        for img in X:
+            EMBEDDED_X.append(get_embedding(img))
 
-    # Append new labels to existing labels
-    Y.extend(new_Y)
+        # Append new labels to existing labels
+        Y.extend(new_Y)
 
-    # Initialize an empty list to store unique labels in order
-    unique_labels = []
+        # Initialize an empty list to store unique labels in order
+        unique_labels = []
 
-    # Set to track seen labels
-    seen_labels = set()
+        # Set to track seen labels
+        seen_labels = set()
 
-    # Iterate through each label in Y
-    for label in Y:
-        # Check if the label has not been seen before
-        if label not in seen_labels:
-            # Add the label to the list of unique labels
-            unique_labels.append(label)
-            # Add the label to the set of seen labels
-            seen_labels.add(label)
+        # Iterate through each label in Y
+        for label in Y:
+            # Check if the label has not been seen before
+            if label not in seen_labels:
+                # Add the label to the list of unique labels
+                unique_labels.append(label)
+                # Add the label to the set of seen labels
+                seen_labels.add(label)
 
-    # Sort the unique labels alphabetically
-    unique_labels.sort()
+        # Sort the unique labels alphabetically
+        unique_labels.sort()
 
-    # Write the unique labels to a text file
-    label_file = os.path.normpath(CONFIG_PATH + os.sep + 'labels.txt')
-    with open(label_file, 'w') as file:
-        for label in unique_labels:
-            file.write(f"{label}\n")
+        # Write the unique labels to a text file
+        label_file = os.path.normpath(CONFIG_PATH + os.sep + 'labels.txt')
+        with open(label_file, 'w') as file:
+            for label in unique_labels:
+                file.write(f"{label}\n")
 
-    print(f"Labels: {unique_labels}")
-    print("Labels have been saved to 'labels.txt' file.")
+        print(f"Labels: {unique_labels}")
+        print("Labels have been saved to 'labels.txt' file.")
 
-    # Save the updated embeddings and labels into a compressed NumPy archive file (.npz)
-    embeddings_save_file = embeddings_file #embeddings file path
-    np.savez_compressed(embeddings_save_file, EMBEDDED_X, Y)
+        # Save the updated embeddings and labels into a compressed NumPy archive file (.npz)
+        embeddings_save_file = embeddings_file  # embeddings file path
+        np.savez_compressed(embeddings_save_file, EMBEDDED_X, Y)
 
-    # Initiate a LabelEncoder object
-    encoder = LabelEncoder()
+        # Initiate a LabelEncoder object
+        encoder = LabelEncoder()
 
-    # Fit the LabelEncoder to the array Y to learn the classes
-    encoder.fit(Y)
+        # Fit the LabelEncoder to the array Y to learn the classes
+        encoder.fit(Y)
 
-    # Transform the labels in Y to encoded labels
-    Y_encoded = encoder.transform(Y)
+        # Transform the labels in Y to encoded labels
+        Y_encoded = encoder.transform(Y)
 
-    # Split the data into training (80%) and testing (20%)
-    X_train, X_test, Y_train, Y_test = train_test_split(EMBEDDED_X, Y_encoded, test_size=0.2, shuffle=True, random_state=17)
+        # Split the data into training (80%) and testing (20%)
+        X_train, X_test, Y_train, Y_test = train_test_split(EMBEDDED_X, Y_encoded, test_size=0.2, shuffle=True, random_state=17)
 
-    # Initiate normalizer
-    in_encoder = Normalizer(norm='l2')
+        # Initiate normalizer
+        in_encoder = Normalizer(norm='l2')
 
-    # Apply normalization to training data
-    X_train_norm = in_encoder.transform(X_train)
+        # Apply normalization to training data
+        X_train_norm = in_encoder.transform(X_train)
 
-    # Apply normalization to testing data
-    X_test_norm = in_encoder.transform(X_test)
+        # Apply normalization to testing data
+        X_test_norm = in_encoder.transform(X_test)
 
-    # Convert labels to one-hot encoding
-    num_classes = len(np.unique(Y_encoded))
-    Y_train_categorical = to_categorical(Y_train, num_classes)
-    Y_test_categorical = to_categorical(Y_test, num_classes)
+        # Convert labels to one-hot encoding
+        num_classes = len(np.unique(Y_encoded))
+        Y_train_categorical = to_categorical(Y_train, num_classes)
+        Y_test_categorical = to_categorical(Y_test, num_classes)
 
-    print (num_classes)
+        print(num_classes)
 
-    # Define the MLP model
-    model = Sequential()
-    model.add(Dense(512, input_shape=(X_train_norm.shape[1],), activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(num_classes, activation='softmax'))
+        # Define the MLP model
+        model = Sequential()
+        model.add(Dense(512, input_shape=(X_train_norm.shape[1],), activation='relu'))
+        model.add(Dropout(0.5))
+        model.add(Dense(num_classes, activation='softmax'))
 
-    # Compile the model
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+        # Compile the model
+        model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
-    # Train the model
-    history = model.fit(X_train_norm, Y_train_categorical, epochs=100, batch_size=32, validation_data=(X_test_norm, Y_test_categorical))
+        # Train the model
+        history = model.fit(X_train_norm, Y_train_categorical, epochs=100, batch_size=32, validation_data=(X_test_norm, Y_test_categorical))
 
-    # Evaluate the model
-    # score = model.evaluate(X_test_norm, Y_test_categorical, verbose=0)
-    # print(f'Test loss: {score[0]} / Test accuracy: {score[1]}')
+        # Evaluate the model
+        # score = model.evaluate(X_test_norm, Y_test_categorical, verbose=0)
+        # print(f'Test loss: {score[0]} / Test accuracy: {score[1]}')
 
-    # Evaluate the model 
-    train_loss = history.history['loss'][-1]
-    train_accuracy = history.history['accuracy'][-1]
-    val_loss = history.history['val_loss'][-1]
-    val_accuracy = history.history['val_accuracy'][-1]
+        # Evaluate the model 
+        train_loss = history.history['loss'][-1]
+        train_accuracy = history.history['accuracy'][-1]
+        val_loss = history.history['val_loss'][-1]
+        val_accuracy = history.history['val_accuracy'][-1]
 
-    # Print training loss and accuracy
-    print(f'Train loss: {train_loss} / Train accuracy: {train_accuracy}')
+        # Print training loss and accuracy
+        print(f'Train loss: {train_loss} / Train accuracy: {train_accuracy}')
 
-    # Print validation (test) loss and accuracy
-    print(f'Validation loss: {val_loss} / Validation accuracy: {val_accuracy}')
+        # Print validation (test) loss and accuracy
+        print(f'Validation loss: {val_loss} / Validation accuracy: {val_accuracy}')
 
-    # Save the model
-    model_save_file = MODEL_H5_PATH
-    model.save(model_save_file)
-    print(f"Model saved to {model_save_file}")
+        # Save the model
+        model_save_file = MODEL_H5_PATH
+        model.save(model_save_file)
+        print(f"Model saved to {model_save_file}")
 
-    # Clear the dataset folder
-    clear_dataset_folder()
-    print(f"Dataset folder cleared")
+        # Clear the dataset folder
+        clear_dataset_folder()
+        print(f"Dataset folder cleared")
+
+        # Send API request with UID and status
+        train_status = 2
+        send_api_request(new_uid, train_status)
+
+    except Exception as e:
+        # Send status as -1 if an error occurs
+        train_status = -1
+        send_api_request(new_uid, train_status)
+        print(f"An error occurred: {e}")
+        return  # Stop the program without saving the model
 
 
 def clear_dataset_folder():
@@ -230,8 +262,22 @@ def clear_dataset_folder():
         except Exception as e:
             print(f'Failed to delete {file_path}. Reason: {e}')
 
+
+def send_api_request(uid_list, status):
+    url = "http://test.com/status"
+    params = {
+        "UID": uid_list,
+        "status": status
+    }
+
+    try:
+        response = requests.patch(url, params=params)
+        response.raise_for_status()
+        print(f"API request successful: {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        print(f"API request failed: {e}")
+
+
 if __name__ == '__main__':
+    check_new_uid()
     train_model()
-
-
-

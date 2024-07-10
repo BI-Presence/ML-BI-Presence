@@ -5,6 +5,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from model_api.services.prediction import Prediction
 from model_api.services.training import train_model
+from model_api.services.training import check_new_uid
 from model_api.services.live_predict import LivePrediction
 import cv2
 from django.http import StreamingHttpResponse, JsonResponse, HttpRequest
@@ -221,10 +222,13 @@ class TrainModelView(APIView):
             return Response({'error': 'true', 'message': 'Set the train parameter to true to start training.'}, status=400)
 
         try:
-            # Run train_model in a background thread
+            new_uid = check_new_uid()
+            if new_uid is None:
+                return Response({'error': 'true', 'message': 'There is no new UID. Training not started.'}, status=500)
             thread = threading.Thread(target=train_model)
             thread.start()
             return Response({'error': 'false', 'message': 'Model training started.'}, status=200)
+ 
         except Exception as e:
             return Response({'error': 'true', 'message': str(e)}, status=500)
 
