@@ -14,90 +14,14 @@ import time
 from collections import Counter
 import threading
 from rest_framework.views import APIView
+import base64
+import numpy as np
 
 # Index
 def index(request):
     return render(request, 'detection/index.html')
 
-# Testing with Camera
-def detect_faces_camera(request):
-    if request.method == 'POST':
-        # Initialize OpenCV Cascade Classifier
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-
-        # Maximum number of predictions before sleep
-        sleep_after_predictions = 10
-        prediction_count = 0
-        prediction_ids = []
-        results = []  # List to store all results
-
-        # Function to generate frames from camera
-        def gen_frames():
-            nonlocal prediction_count, prediction_ids, results
-            cap = cv2.VideoCapture(0)
-            while True:
-                ret, frame = cap.read()
-                if not ret:
-                    break
-
-                # Perform face detection
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
-
-                # Draw rectangles around detected faces
-                for (x, y, w, h) in faces:
-                    cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
-                    # Pause the video feed and classify the detected face
-                    face_img = frame[y:y+h, x:x+w]
-                    _, jpeg = cv2.imencode('.jpg', face_img)
-                    face_bytes = jpeg.tobytes()
-                    result = classify_face(face_bytes)
-                    print(result)  # Log the classification result to the console
-
-                    # Collect prediction result and update count if the UserID is not "unknown"
-                    if 'UserID' in result and result['UserID'] != 'unknown':
-                        prediction_ids.append(result['UserID'])
-                        prediction_count += 1
-
-                    # Append result to the list
-                    results.append(result)
-
-                # Sleep for 3 seconds after every 10 predictions
-                if prediction_count > 0 and prediction_count % sleep_after_predictions == 0:
-
-                    # Determine the most common UserID
-                    if prediction_ids:
-                        most_common_id = Counter(prediction_ids).most_common(1)[0][0]
-                        print(f"Most common UserID: {most_common_id}")
-
-                    time.sleep(3)
-                    prediction_count = 0
-                    prediction_ids = []
-
-                # Convert frame to JPEG format for web display
-                _, jpeg = cv2.imencode('.jpg', frame)
-                frame_bytes = jpeg.tobytes()
-
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-
-            # Determine the most common UserID
-            if prediction_ids:
-                most_common_id = Counter(prediction_ids).most_common(1)[0][0]
-                print(f"Most common UserID: {most_common_id}")
-                results.append({"UserID": most_common_id})
-
-            # Yield the final results as JSON
-            yield (b'--frame\r\n'
-                   b'Content-Type: application/json\r\n\r\n' +
-                   bytes(JsonResponse(results).content) + b'\r\n')
-        response = StreamingHttpResponse(gen_frames(), content_type='multipart/x-mixed-replace; boundary=frame')
-        print(response)
-        return response
-
-    return JsonResponse({"error": "Only POST method is allowed."}, status=405)
-
-
+# Function to classify face
 def classify_face(face_bytes):
     prediction_obj = LivePrediction()
     face_file = SimpleUploadedFile("detected_face.jpg", face_bytes, content_type="image/jpeg")
@@ -106,6 +30,39 @@ def classify_face(face_bytes):
     mock_request.FILES['media'] = face_file
     response_dict = prediction_obj.predict(mock_request)
     return response_dict['response']
+
+# API endpoint for face detection and classification
+class DetectFacesCameraView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request):
+        image_base64 = request.data.get("image")
+        if not image_base64:
+            return JsonResponse({"error": "No image provided"}, status=400)
+
+        # Decode the base64 image
+        face_bytes = base64.b64decode(image_base64)
+
+        # Initialize OpenCV Cascade Classifier
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        nparr = np.fromstring(face_bytes, np.uint8)
+        img_np = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        # Perform face detection
+        gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
+
+        if len(faces) == 0:
+            return JsonResponse({"error": "No faces detected"}, status=200)
+
+        # Take the first detected face for classification
+        (x, y, w, h) = faces[0]
+        face_img = img_np[y:y+h, x:x+w]
+        _, jpeg = cv2.imencode('.jpg', face_img)
+        face_bytes = jpeg.tobytes()
+
+        result = classify_face(face_bytes)
+        return JsonResponse(result, status=200)
 
 class PredFacenetView(APIView):
     parser_classes = (MultiPartParser, FormParser)
