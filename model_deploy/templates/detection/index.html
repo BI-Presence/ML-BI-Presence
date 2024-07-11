@@ -77,7 +77,10 @@
           .getUserMedia({ video: true })
           .then((stream) => {
             video.srcObject = stream;
-            captureFrame(video);
+            video.onloadedmetadata = () => {
+              video.play();
+              captureFrame(video);
+            };
           })
           .catch((err) => {
             console.error("Error accessing camera: ", err);
@@ -122,7 +125,7 @@
           class="w-4/5 lg:w-customFrame bg-white text-black rounded-3xl shadow-lg flex flex-col items-center py-5"
         >
           <img
-            src="../static/assets/logo-bi.svg"
+            src="{% static 'assets/logo-bi.svg' %}"
             alt="logo"
             class="mb-4 w-32"
           />

@@ -62,6 +62,7 @@ class DetectFacesCameraView(APIView):
         face_bytes = jpeg.tobytes()
 
         result = classify_face(face_bytes)
+        print (result)
         return JsonResponse(result, status=200)
 
 class PredFacenetView(APIView):
