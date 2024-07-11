@@ -15,8 +15,34 @@
         font-weight: bold;
         color: #000;
       }
+      /* Modal styles */
+      .modal {
+        display: none; /* Hidden by default */
+        position: fixed; /* Stay in place */
+        z-index: 1; /* Sit on top */
+        left: 0;
+        top: 0;
+        width: 100%; /* Full width */
+        height: 100%; /* Full height */
+        overflow: auto; /* Enable scroll if needed */
+        background-color: rgb(0, 0, 0); /* Fallback color */
+        background-color: rgba(0, 0, 0, 0.4); /* Black w/ opacity */
+      }
+      .modal-content {
+        background-color: #fefefe;
+        margin: 7% auto; /* 15% from the top and centered */
+        padding: 20px;
+        border: 1px solid #888;
+        width: fit-content; /* Could be more or less, depending on screen size */
+        text-align: center;
+        border-radius: 10px;
+      }
     </style>
     <script>
+      let modalVisible = false; // State variable to track modal visibility
+      let modalTimeout; // Timeout ID for closing the modal
+      let countdownInterval; // Interval ID for countdown
+
       function getCSRFToken() {
         let cookieValue = null;
         if (document.cookie && document.cookie !== "") {
@@ -41,6 +67,8 @@
       }
 
       async function sendFrame(imageBase64) {
+        if (modalVisible) return; // Ignore if the modal is currently visible or in cooldown
+
         const csrfToken = getCSRFToken();
         try {
           const response = await fetch("{% url 'detect_faces_camera' %}", {
@@ -59,16 +87,53 @@
           const result = await response.json();
           console.log(result); // Log the result to the console
 
-          // Display the result on the frontend
-          const resultElement = document.getElementById("result");
-          if (result && result.predictionResult && result.predictionResult.UserID) {
-            resultElement.innerHTML = `UserID: ${result.predictionResult.UserID}`;
-          } else {
-            resultElement.innerHTML = "No UserID detected.";
+          // Display the result in a modal
+          if (
+            result &&
+            result.predictionResult &&
+            result.predictionResult.UserID
+          ) {
+            showModal(
+              result.predictionResult.UserID,
+              result.predictionResult.confidence
+            );
           }
         } catch (error) {
           console.error("Error fetching data:", error);
         }
+      }
+
+      function showModal(userID, confidence) {
+        modalVisible = true; // Set modal visibility state
+        const modal = document.getElementById("myModal");
+        const modalContent = document.getElementById("modalContent");
+        let countdown = 5;
+
+        if (userID === "unknown") {
+          modalContent.innerHTML = `
+            <h1 class='text-5xl'>Data Tidak Ditemukan</h1>
+            <p>Silakan coba lagi dalam <span id="countdown">${countdown}</span> detik.</p>
+          `;
+        } else {
+          modalContent.innerHTML = `
+            <h1 class='text-4xl font-bold'>Absensi Tercatat!</h1>
+            <p>User ID: ${userID}</p>
+            <p>Confidence: ${confidence.toFixed(2)}%</p>
+            <p>Silakan keluar dari layar dalam <span id="countdown">${countdown}</span> detik.</p>
+          `;
+        }
+        modal.style.display = "block";
+
+        countdownInterval = setInterval(() => {
+          countdown--;
+          document.getElementById("countdown").innerText = countdown;
+        }, 1000);
+
+        modalTimeout = setTimeout(() => {
+          clearInterval(countdownInterval); // Clear the countdown interval
+          modal.style.display = "none";
+          modalVisible = false; // Reset modal visibility state
+        }, 5000);
       }
 
       function startCamera() {
@@ -95,7 +160,7 @@
 
         let lastSent = 0; // Variable to store the timestamp of the last sent frame
 
-        const intervalMillis = 1000; // Interval in milliseconds (1 detik)
+        const intervalMillis = 1000; // Interval in milliseconds (1 second)
 
         setInterval(() => {
           const now = Date.now();
@@ -151,9 +216,18 @@
                 class="w-full h-full object-cover object-center"
               ></video>
             </div>
-            <div id="result" class="text-black text-center mt-4"></div>
+            <div id="statusText" class="text-black text-center mt-4">
+              Silakan arahkan wajah ke kamera!
+            </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- The Modal -->
+    <div id="myModal" class="modal">
+      <div class="modal-content">
+        <p id="modalContent"></p>
       </div>
     </div>
   </body>
