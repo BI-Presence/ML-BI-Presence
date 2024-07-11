@@ -97,12 +97,16 @@ def check_new_uid():
 
 def train_model():
 
+    TRAIN_ON_PROCESS = 1
+    TRAIN_SUCESS = 2
+    TRAIN_FAIL = -1
+    
     # Get list of folders (classes) in DATASET_PATH
     new_uid = check_new_uid()
     print (new_uid)
 
     # set status to on proses
-    train_status = 0
+    train_status = TRAIN_ON_PROCESS
     send_api_request(new_uid, train_status)
 
     try:
@@ -239,12 +243,12 @@ def train_model():
         print(f"Dataset folder cleared")
 
         # Send API request with UID and status
-        train_status = 2
+        train_status = TRAIN_SUCESS
         send_api_request(new_uid, train_status)
 
     except Exception as e:
         # Send status as -1 if an error occurs
-        train_status = -1
+        train_status = TRAIN_FAIL
         send_api_request(new_uid, train_status)
         print(f"An error occurred: {e}")
         return  # Stop the program without saving the model
@@ -264,19 +268,23 @@ def clear_dataset_folder():
 
 
 def send_api_request(uid_list, status):
-    url = "http://test.com/status"
-    params = {
-        "UID": uid_list,
-        "status": status
-    }
+    url = "https://a02f-103-243-178-32.ngrok-free.app/api/trainings/update-trainings"
+    data = []
 
+    # Loop through each UID in uid_list and create a dictionary for each UID and status
+    for uid in uid_list:
+        data.append({
+            "userId": uid,
+            "status": status
+        })
+
+    print(data)
     try:
-        response = requests.patch(url, params=params)
+        response = requests.patch(url, json=data)
         response.raise_for_status()
         print(f"API request successful: {response.status_code}")
     except requests.exceptions.RequestException as e:
         print(f"API request failed: {e}")
-
 
 if __name__ == '__main__':
     check_new_uid()
