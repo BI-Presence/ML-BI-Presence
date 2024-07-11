@@ -61,8 +61,8 @@
 
           // Display the result on the frontend
           const resultElement = document.getElementById("result");
-          if (result && result.UserID) {
-            resultElement.innerHTML = `UserID: ${result.UserID}`;
+          if (result && result.predictionResult && result.predictionResult.UserID) {
+            resultElement.innerHTML = `UserID: ${result.predictionResult.UserID}`;
           } else {
             resultElement.innerHTML = "No UserID detected.";
           }
@@ -93,11 +93,19 @@
         canvas.height = video.videoHeight;
         const context = canvas.getContext("2d");
 
+        let lastSent = 0; // Variable to store the timestamp of the last sent frame
+
+        const intervalMillis = 1000; // Interval in milliseconds (1 detik)
+
         setInterval(() => {
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const imageBase64 = canvas.toDataURL("image/jpeg").split(",")[1];
-          sendFrame(imageBase64);
-        }, 1000); // Capture a frame every second
+          const now = Date.now();
+          if (now - lastSent >= intervalMillis) {
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageBase64 = canvas.toDataURL("image/jpeg").split(",")[1];
+            sendFrame(imageBase64);
+            lastSent = now; // Update the last sent timestamp
+          }
+        }, intervalMillis); // Capture a frame every intervalMillis
       }
 
       document.addEventListener("DOMContentLoaded", () => {

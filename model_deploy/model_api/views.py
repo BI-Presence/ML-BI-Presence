@@ -8,7 +8,7 @@ from model_api.services.training import train_model
 from model_api.services.training import check_new_uid
 from model_api.services.live_predict import LivePrediction
 import cv2
-from django.http import StreamingHttpResponse, JsonResponse, HttpRequest
+from django.http import JsonResponse, HttpRequest
 from django.core.files.uploadedfile import SimpleUploadedFile
 import time
 from collections import Counter
@@ -36,6 +36,7 @@ class DetectFacesCameraView(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request):
+        
         image_base64 = request.data.get("image")
         if not image_base64:
             return JsonResponse({"error": "No image provided"}, status=400)
