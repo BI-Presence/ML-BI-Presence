@@ -217,10 +217,6 @@ def train_model():
         # Train the model
         history = model.fit(X_train_norm, Y_train_categorical, epochs=100, batch_size=32, validation_data=(X_test_norm, Y_test_categorical))
 
-        # Evaluate the model
-        # score = model.evaluate(X_test_norm, Y_test_categorical, verbose=0)
-        # print(f'Test loss: {score[0]} / Test accuracy: {score[1]}')
-
         # Evaluate the model 
         train_loss = history.history['loss'][-1]
         train_accuracy = history.history['accuracy'][-1]
@@ -251,7 +247,7 @@ def train_model():
         train_status = TRAIN_FAIL
         send_api_request(new_uid, train_status)
         print(f"An error occurred: {e}")
-        return  # Stop the program without saving the model
+        return
 
 
 def clear_dataset_folder():
@@ -278,7 +274,6 @@ def send_api_request(uid_list, status):
             "status": status
         })
 
-    print(data)
     try:
         response = requests.patch(url, json=data)
         response.raise_for_status()
