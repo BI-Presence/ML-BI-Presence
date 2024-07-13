@@ -43,13 +43,13 @@
       let modalTimeout; // Timeout ID for closing the modal
       let countdownInterval; // Interval ID for countdown
 
-      let responseDummy = {
-        type: 0,
-        status: 1,
-        createdAt: "2024-07-11T15:19:41.6886208+07:00",
-        fullName: "Josua Adriel",
-        message: "Presensi Masuk Tercatat!",
-      };
+      // let responseDummy = {
+      //   type: 0,
+      //   status: 1,
+      //   createdAt: "2024-07-11T15:19:41.6886208+07:00",
+      //   fullName: "Josua Adriel",
+      //   message: "Presensi Masuk Tercatat!",
+      // };
       function formatDateTime(rawDateTime) {
         const date = new Date(rawDateTime);
 
@@ -111,16 +111,19 @@
             throw new Error(`HTTP error! Status: ${response.status}`);
           } else {
             const responseData = await response.json();
-            const confidence = responseData.predictionResult.confidence;
-            const userId = responseData.predictionResult.UserID;
+            
+            if (!responseData.predictionResult) {
+              throw new Error("Invalid response format: 'predictionResult' is missing");
+            }
+            
+            let confidence = responseData.predictionResult.confidence;
+            let userId = responseData.predictionResult.UserID;
 
             if (userId === "unknown") {
-              //console.log("DATA UNKNOWN");
               showModal(-2, "", "", "Data Tidak Ditemukan!", confidence);
-              // showModal(userId, confidence);
             } else {
               try {
-                const apiResponse = await fetch("https://2108-103-243-178-32.ngrok-free.app/api/presences/ml-result", {
+                const apiResponse = await fetch("https://1fcb-180-254-76-95.ngrok-free.app/api/presences/ml-result", {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
@@ -131,12 +134,14 @@
                   }),
                 });
 
+                let apiResponseData;
+
                 if (!apiResponse.ok) {
+                  apiResponseData = await apiResponse.json();
                   throw new Error(`HTTP error! Status: ${apiResponse.status}`);
-                  showModal(4, "", "", "Data Tidak Ditemukan!", confidence);
                 }
 
-                const apiResponseData = await apiResponse.json();
+                apiResponseData = await apiResponse.json();
                 console.log("API Response:", apiResponseData);
 
                 // Display the result in a modal
@@ -153,10 +158,29 @@
                     apiResponseData.message,
                     confidence 
                   );
-                } 
+                }
               } catch (error) {
-                console.error("Failed to connect to the API:", error);
-                showModal(4, "", "", "Data Tidak Ditemukan!", confidence);
+                console.error("Error API ML:", error);
+
+                if (error instanceof Response) {
+                  const apiResponseData = await error.json();
+                  if (
+                    apiResponseData &&
+                    apiResponseData.type &&
+                    apiResponseData.fullName &&
+                    apiResponseData.message
+                  ) {
+                    showModal(
+                      apiResponseData.type,
+                      apiResponseData.createdAt,
+                      apiResponseData.fullName,
+                      apiResponseData.message,
+                      confidence 
+                    );
+                  }
+                } else {
+                  showModal("", "", "", "Tidak bisa connect ke API (ERROR)", confidence);
+                }
               }
             }
           }
