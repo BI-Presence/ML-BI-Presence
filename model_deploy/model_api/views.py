@@ -145,7 +145,7 @@ class TrainModelView(APIView):
                 ),
                 examples={
                     'application/json': {
-                        "message": "Model training started."
+                        "message": "Pelatihan model dimulai."
                     }
                 }
             ),
@@ -161,7 +161,7 @@ class TrainModelView(APIView):
                 examples={
                     'application/json': {
                         "error": "true",
-                        "message": 'Set train parameter to true to start training.'
+                        "message": 'Setel parameter train ke true untuk memulai pelatihan.'
                     }
                 }
             ),
@@ -187,16 +187,16 @@ class TrainModelView(APIView):
         train_param = request.query_params.get('train', '').lower()
 
         if train_param != 'true':
-            return Response({'error': 'true', 'message': 'Set the train parameter to true to start training.'}, status=400)
+            return Response({'error': 'true', 'message': 'Setel parameter train ke true untuk memulai pelatihan.'}, status=400)
 
         try:
             new_uid = check_new_uid()
             if new_uid is None:
-                return Response({'error': 'true', 'message': 'There is no new UID. Training not started.'}, status=500)
+                return Response({'error': 'true', 'message': 'Tidak ada UID baru. Pelatihan tidak dimulai.'}, status=500)
             thread = threading.Thread(target=train_model)
             thread.start()
-            return Response({'error': 'false', 'message': 'Model training started.'}, status=200)
- 
+            return Response({'error': 'false', 'message': 'Pelatihan model dimulai.'}, status=200)
+
         except Exception as e:
             return Response({'error': 'true', 'message': str(e)}, status=500)
 
