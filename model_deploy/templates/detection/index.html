@@ -17,31 +17,51 @@
       }
       /* Modal styles */
       .modal {
-        display: none; /* Hidden by default */
-        position: fixed; /* Stay in place */
-        z-index: 1; /* Sit on top */
+        display: none; 
+        position: fixed;
+        z-index: 1;
         left: 0;
         top: 0;
-        width: 100%; /* Full width */
-        height: 100%; /* Full height */
-        overflow: auto; /* Enable scroll if needed */
-        background-color: rgb(0, 0, 0); /* Fallback color */
-        background-color: rgba(0, 0, 0, 0.4); /* Black w/ opacity */
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgb(0, 0, 0);
+        background-color: rgba(0, 0, 0, 0.4);
       }
       .modal-content {
         background-color: #fefefe;
-        margin: 7% auto; /* 15% from the top and centered */
+        margin: 7% auto;
         padding: 20px;
         border: 1px solid #888;
-        width: fit-content; /* Could be more or less, depending on screen size */
+        width: fit-content;
         text-align: center;
         border-radius: 10px;
       }
     </style>
     <script>
-      let modalVisible = false; // State variable to track modal visibility
-      let modalTimeout; // Timeout ID for closing the modal
-      let countdownInterval; // Interval ID for countdown
+      let modalVisible = false;
+      let modalTimeout;
+      let countdownInterval;
+
+      function formatDateTime(rawDateTime) {
+        const date = new Date(rawDateTime);
+
+        // Mendapatkan komponen tanggal
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+
+        // Mendapatkan komponen waktu
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+
+        // Membentuk format akhir
+        const formattedDate = `Tanggal: ${day}-${month}-${year}`;
+        const formattedTime = `Waktu: ${hours}:${minutes}:${seconds}`;
+
+        return { formattedDate, formattedTime };
+    }
 
       function getCSRFToken() {
         let cookieValue = null;
@@ -84,49 +104,45 @@
             throw new Error(`HTTP error! Status: ${response.status}`);
           } else {
             const responseData = await response.json();
-            const confidence = responseData.predictionResult.confidence;
-            const userId = responseData.predictionResult.UserID;
+            
+            if (!responseData.predictionResult) {
+              throw new Error("Invalid response format: 'predictionResult' is missing");
+            }
+            
+            let confidence = responseData.predictionResult.confidence;
+            let userId = responseData.predictionResult.UserID;
 
             if (userId === "unknown") {
-              console.log("DATA UNKNOWN");
-              // showModal(userId, confidence);
+              showModal(-2, "", "", "Data Tidak Ditemukan!", confidence);
             } else {
               try {
-                const apiResponse = await fetch("https://2108-103-243-178-32.ngrok-free.app/api/presences/ml-result", {
+                const apiResponse = await fetch("https://2046-182-253-55-48.ngrok-free.app/api/presences/ml-resultadada", {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
                   },
                   body: JSON.stringify({
-                    confidence: confidence,  // Replace with your actual confidence value
-                    userId: userId  // Replace with your actual userId
+                    confidence: confidence,
+                    userId: userId
                   }),
                 });
 
-                if (!apiResponse.ok) {
-                  throw new Error(`HTTP error! Status: ${apiResponse.status}`);
-                }
+                let apiResponseData;
 
-                const apiResponseData = await apiResponse.json();
+                apiResponseData = await apiResponse.json();
                 console.log("API Response:", apiResponseData);
 
-                // Display the result in a modal
-                // if (
-                //   apiResponseData &&
-                //   apiResponseData.type &&
-                //   apiResponseData.fullName &&
-                //   apiResponseData.message
-                // ) {
-                //   showModal(
-                //     apiResponseData.type, //masuk keluar 0 = masuk, 1 = pulang, 2=TidakMasukAtauPulang
-                //     apiResponseData.fullName, //nama
-                //     confidence, //confidence
-                //     apiResponseData.message // message
-                //   );
-                // }
+                showModal(
+                    apiResponseData.type,
+                    apiResponseData.createdAt,
+                    apiResponseData.fullName,
+                    apiResponseData.message,
+                    confidence 
+                );
 
               } catch (error) {
-                console.error("Failed to connect to the API:", error);
+                console.error("Error API:", error);
+                showModal("", "", "", "Terjadi kesalahan pada sistem", confidence);
               }
             }
           }
@@ -135,26 +151,56 @@
         }
       }
 
-
-      function showModal(userID, confidence) {
-        modalVisible = true; // Set modal visibility state
+      function showModal(type, createdAt, fullName, message, confidence) {
+        modalVisible = true;
         const modal = document.getElementById("myModal");
         const modalContent = document.getElementById("modalContent");
         let countdown = 5;
+        const { formattedDate, formattedTime } = formatDateTime(createdAt);
 
-        if (userID === "unknown") {
+        if (type === 0) {
+          //masuk
           modalContent.innerHTML = `
-            <h1 class='text-5xl'>Data Tidak Ditemukan</h1>
-            <p>Silakan coba lagi dalam <span id="countdown">${countdown}</span> detik.</p>
+            <h1 class='text-6xl font-bold mb-5'>${message}</h1>
+            <h2 class='text-3xl mb-1'>Selamat Datang, ${fullName}!</h2> 
+            <p class ='text-2xl mb-1'>Confidence: ${confidence.toFixed(2)}%</p>
+            <p class ='text-2xl mb-1'>${formattedDate}</p>
+            <p class ='text-2xl mb-5'>${formattedTime}</p>
+            <p>Silakan keluar dari layar dalam <span id="countdown">${countdown}</span> detik.</p>
           `;
-        } else {
+        } else if (type === 1) {
+          //keluar
           modalContent.innerHTML = `
-            <h1 class='text-4xl font-bold'>Absensi Tercatat!</h1>
-            <p>User ID: ${userID}</p>
-            <p>Confidence: ${confidence.toFixed(2)}%</p>
+            <h1 class='text-6xl font-bold mb-5'>${message}</h1>
+            <h2 class='text-3xl mb-1'>Sampai Jumpa Lagi, ${fullName}!</h2>
+            <p class ='text-2xl mb-1'>Confidence: ${confidence.toFixed(2)}%</p>
+            <p class ='text-2xl mb-1'>${formattedDate}</p>
+            <p class ='text-2xl mb-5'>${formattedTime}</p>
+            <p>Silakan keluar dari layar dalam <span id="countdown">${countdown}</span> detik.</p>
+          `;
+        }  else if (type === 2) {
+          //dua kali absen
+          modalContent.innerHTML = `
+            <h1 class='text-6xl font-bold mb-5'>${message}</h1>
+            <h2 class='text-3xl mb-1'>Nama: ${fullName}</h2>
+            <p class ='text-2xl mb-1'>${formattedDate}</p>
+            <p class ='text-2xl mb-5'>${formattedTime}</p>
+            <p>Silakan keluar dari layar dalam <span id="countdown">${countdown}</span> detik.</p>
+          `;
+        }  else if (type === -2) {
+          //data tidak ditemukan (UID unknown)
+          modalContent.innerHTML = `
+            <h1 class='text-6xl font-bold mb-5'>Data Tidak Ditemukan!</h1>
             <p>Silakan keluar dari layar dalam <span id="countdown">${countdown}</span> detik.</p>
           `;
         }
+          else { //API BE error dan error lainnya
+          modalContent.innerHTML = `
+            <h1 class='text-6xl font-bold mb-5'>${message}</h1>
+            <p>Silakan coba lagi dalam <span id="countdown">${countdown}</span> detik.</p>
+            `;
+        }
+
         modal.style.display = "block";
 
         countdownInterval = setInterval(() => {
@@ -168,6 +214,7 @@
           modalVisible = false; // Reset modal visibility state
         }, 5000);
       }
+
 
       function startCamera() {
         const video = document.querySelector("video");
