@@ -25,8 +25,8 @@ SECRET_KEY = 'django-insecure-w4dst_&56ojx&+_guug=%2hv3fiuao^&!8&)9^$aa)p-4p%1@j
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# ALLOWED_HOSTS = ["*"]
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ["*"]
+
 
 # Application definition
 
@@ -39,9 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'drf_yasg',
-    'model_api',
-    'corsheaders',
-    'compressor',
+    'model_api'
 ]
 
 MIDDLEWARE = [
@@ -52,29 +50,14 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.common.CommonMiddleware',
 ]
-
-CORS_ALLOW_ALL_ORIGINS = True # If this is used then `CORS_ALLOWED_ORIGINS` will not have any effect
-CORS_ALLOW_CREDENTIALS = True
-
-CORS_ALLOWED_ORIGINS = [
-    'https://afd5-182-2-134-84.ngrok-free.app'
-] # If this is used, then not need to use `CORS_ALLOW_ALL_ORIGINS = True`
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    'https://afd5-182-2-134-84.ngrok-free.app'
-]
-
-USE_X_FORWARDED_HOST = True
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 ROOT_URLCONF = 'model_deploy.urls'
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR/'templates'],
+        'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -135,7 +118,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = '/static/'
+STATIC_URL = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -144,12 +127,3 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'
-
-COMPRESS_ROOT = BASE_DIR / 'static'
- 
-COMPRESS_ENABLED = True
- 
-STATICFILES_FINDERS = (
-    'compressor.finders.CompressorFinder',
-    'django.contrib.staticfiles.finders.FileSystemFinder',
-    'django.contrib.staticfiles.finders.AppDirectoriesFinder',)

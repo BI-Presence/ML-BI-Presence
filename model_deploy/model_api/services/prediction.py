@@ -2,22 +2,26 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 import numpy as np
+import pickle
 import cv2 as cv
-import tensorflow as tf
-import tensorflow_hub as hub
 from rest_framework import status
 from sklearn.preprocessing import LabelEncoder
 from mtcnn.mtcnn import MTCNN
 from keras_facenet import FaceNet
+from datetime import datetime
 from rest_framework.parsers import MultiPartParser
 import threading
 from model_api.models import SaveImagesModel
 
 # Define directory path
 BASE_PATH = os.getcwd()
-MODEL_H5_PATH = os.path.normpath(BASE_PATH + os.sep + 'model_h5'+ os.sep + 'updated_mtcnn_facenet_mlp_model.h5')
-MODEL = tf.keras.models.load_model(MODEL_H5_PATH, compile=False, custom_objects={'KerasLayer': hub.KerasLayer})
+PICKLE_PATH = os.path.normpath(BASE_PATH + os.sep + 'pickle')
 CONFIG_PATH = os.path.normpath(BASE_PATH + os.sep + 'config')
+
+# Load Saved Model
+pickle_file = os.path.normpath(PICKLE_PATH + os.sep + 'updated_fix_model_facenet_160x160.pkl')
+with open(pickle_file, 'rb') as f:
+    fix_model_facenet = pickle.load(f)
 
 # Initialize MTCNN and FaceNet models
 IMG_DETECTOR = MTCNN()
@@ -31,7 +35,7 @@ def load_labels(LABEL_FILE_PATH):
 
 # Load label encoder
 encoder = LabelEncoder()
-label_file = os.path.normpath(CONFIG_PATH + os.sep + 'labels.txt')
+label_file=os.path.normpath(CONFIG_PATH + os.sep + 'labels.txt')
 LABEL = load_labels(label_file)
 encoder.fit(LABEL)
 
@@ -55,38 +59,33 @@ threading.Thread(target=warm_up_models).start()
 
 # Get prediction result
 def get_prediction(embedding):
-    # Convert the embedding to the correct shape (2D array)
-    embedding = np.expand_dims(embedding, axis=0)
-    
-    # Make Prediction
-    predict_proba = MODEL.predict(embedding)[0]
-    predicted_class = np.argmax(predict_proba)
-    predicted_label = encoder.inverse_transform([predicted_class])[0]
-    confidence_score = predict_proba[predicted_class]
-
-    # Check confidence score and determine if the prediction should be considered unknown
-    if confidence_score < 0.9:
-        predicted_label = "unknown"
-
-    # Convert confidence score to percentage
-    confidence_percentage = confidence_score * 100
-
-    return predicted_label, confidence_percentage
+    # Perform prediction
+    predict = fix_model_facenet.predict([embedding])
+    predict_proba = fix_model_facenet.predict_proba([embedding])
+    return predict, predict_proba
 
 class Prediction:
     # Set the parser classes to handle multipart file uploads
     parser_classes = [MultiPartParser]
 
     def preprocess_image(self, image_file, new_size=(480, 480)):
-        # file_extension = os.path.splitext(image_file.name)[1].lower()
-        # if file_extension not in ['.jpg', '.jpeg', '.png']:
-        #     raise Exception("Unsupported file type.")
+        file_extension = os.path.splitext(image_file.name)[1].lower()
+        if file_extension not in ['.jpg', '.jpeg', '.png']:
+            raise Exception("Unsupported file type.")
 
         # Convert the uploaded image file to a NumPy array
         file_bytes = np.asarray(bytearray(image_file.read()), dtype=np.uint8)
 
+        # Debug: Check if file_bytes is empty or malformed
+        if len(file_bytes) == 0:
+            raise Exception("Empty or corrupted image file.")
+
         # Decode the image using OpenCV
         img = cv.imdecode(file_bytes, cv.IMREAD_COLOR)
+
+        # Check if the image decoding was successful
+        if img is None:
+            raise Exception("Failed to decode image.")
 
         # Convert the image to RGB
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
@@ -125,19 +124,15 @@ class Prediction:
 
         return embedding
 
-    # def save_image_to_database(self, image_file):
-    #     # Save the image to the database
-    #     try:
-    #         # Create an instance of ImageModel and save the image
-    #         new_image = SaveImagesModel(fileName=image_file)
-    #         new_image.save()
-            
-    #         # Generate the URL for the saved image
-    #         image_url = f'/media/{new_image.fileName}'
-            
-    #         return new_image, image_url  # Optionally return the saved instance and URL for further processing
-    #     except Exception as e:
-    #         raise Exception(f"Failed to save image to database: {str(e)}")
+    def save_image_to_database(self, image_file):
+        # Save the image to the database
+        try:
+            # Create an instance of ImageModel and save the image
+            new_image = SaveImagesModel(fileName=image_file)
+            new_image.save()
+            return new_image  # Optionally return the saved instance for further processing
+        except Exception as e:
+            raise Exception(f"Failed to save image to database: {str(e)}")
 
     def predict(self, request):
         # Initialize the return dictionary
@@ -153,16 +148,27 @@ class Prediction:
             embedding = self.preprocess_image(image_file)
 
             # Make Prediction
-            predicted_label, confidence_score = get_prediction(embedding)
+            predict, predict_proba = get_prediction(embedding)
 
-            # # Save the image to the database and get the URL
-            # saved_image, image_url = self.save_image_to_database(image_file)
+            # Save the image to the database
+            saved_image = self.save_image_to_database(image_file)
+
+            # Decode the prediction
+            predicted_label = encoder.inverse_transform(predict)[0]
+            confidence_score = predict_proba[0][predict[0]]
+
+            # Check confidence score and determine if the prediction should be considered unknown
+            if confidence_score < 0.5:
+                predicted_label = "unknown"
+
+            timestamp = datetime.now().isoformat()
 
             # Create prediction result dictionary
             prediction_result = {
                 "UserID": predicted_label,
-                "confidence": confidence_score,  # Ensure confidence_score is in percentage
-                # "imageURL": image_url
+                "timestamp": timestamp,
+                "confidence": float(confidence_score),  # Ensure confidence_score is a float
+                "imageID": saved_image.id
             }
 
             # Create result dictionary
