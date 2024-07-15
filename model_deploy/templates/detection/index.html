@@ -116,7 +116,7 @@
               showModal(-2, "", "", "Data Tidak Ditemukan!", confidence);
             } else {
               try {
-                const apiResponse = await fetch("https://2046-182-253-55-48.ngrok-free.app/api/presences/ml-resultadada", {
+                const apiResponse = await fetch("https://2046-182-253-55-48.ngrok-free.app/api/presences/ml-result", {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
@@ -184,7 +184,6 @@
             <h1 class='text-6xl font-bold mb-5'>${message}</h1>
             <h2 class='text-3xl mb-1'>Nama: ${fullName}</h2>
             <p class ='text-2xl mb-1'>${formattedDate}</p>
-            <p class ='text-2xl mb-5'>${formattedTime}</p>
             <p>Silakan keluar dari layar dalam <span id="countdown">${countdown}</span> detik.</p>
           `;
         }  else if (type === -2) {

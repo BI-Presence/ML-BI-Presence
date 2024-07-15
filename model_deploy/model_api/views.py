@@ -35,6 +35,39 @@ def classify_face(face_bytes):
 class DetectFacesCameraView(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
+    @swagger_auto_schema(
+        tags=['Live Detection Using Camera'],
+        manual_parameters=[
+            openapi.Parameter(
+                name='image', 
+                in_=openapi.IN_FORM, 
+                type=openapi.TYPE_STRING, 
+                description='Base64 encoded image',
+                required=True
+            )
+        ],
+        responses={
+            200: openapi.Response(
+                'Success',
+                openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'UserID': openapi.Schema(type=openapi.TYPE_STRING, description='User ID of the detected face'),
+                        'confidence': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, description='Confidence level'),
+                    }
+                ),
+                examples={
+                    'application/json': {
+                        "UserID": "18999687-c74f-419e-9377-8f4056b41612",
+                        "confidence": 99.79705214500427,
+                    }
+                }
+            ),
+            400: 'Bad Request',
+            500: 'Internal Server Error'
+        }
+    )  
+
     def post(self, request):
         
         image_base64 = request.data.get("image")
@@ -92,9 +125,7 @@ class PredFacenetView(APIView):
                             type=openapi.TYPE_OBJECT,
                             properties={
                                 'UserID': openapi.Schema(type=openapi.TYPE_STRING, description='User ID'),
-                                'timestamp': openapi.Schema(type=openapi.TYPE_STRING, description='Timestamp'),
                                 'confidence': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, description='Confidence level'),
-                                'imageID': openapi.Schema(type=openapi.TYPE_INTEGER, description='Image ID'),
                             }
                         )
                     }
@@ -104,10 +135,8 @@ class PredFacenetView(APIView):
                         "error": "false",
                         "message": "success",
                         "predictionResult": {
-                            "UserID": "vicky",
-                            "timestamp": "2024-07-03T14:05:49.439126",
-                            "confidence": 0.9121062518765518,
-                            "imageID": 13
+                            "UserID": "18999687-c74f-419e-9377-8f4056b41612",
+                            "confidence": 99.79705214500427,
                         }
                     }
                 }

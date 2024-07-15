@@ -8,5 +8,6 @@ keras-facenet
 scikit-learn == 1.3.2
 Pillow
 drf-yasg
+django-compressor
 django-cors-headers
 tensorflow-hub
