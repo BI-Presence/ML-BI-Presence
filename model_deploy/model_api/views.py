@@ -35,20 +35,6 @@ def classify_face(face_bytes):
 class DetectFacesCameraView(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
-    def post(self, request):
-        
-        image_base64 = request.data.get("image")
-        if not image_base64:
-            return JsonResponse({"error": "No image provided"}, status=400)
-
-        # Decode the base64 image
-        face_bytes = base64.b64decode(image_base64)
-
-        # Initialize OpenCV Cascade Classifier
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        nparr = np.fromstring(face_bytes, np.uint8)
-        img_np = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
         # Perform face detection
         gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
         faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
@@ -92,9 +78,7 @@ class PredFacenetView(APIView):
                             type=openapi.TYPE_OBJECT,
                             properties={
                                 'UserID': openapi.Schema(type=openapi.TYPE_STRING, description='User ID'),
-                                'timestamp': openapi.Schema(type=openapi.TYPE_STRING, description='Timestamp'),
                                 'confidence': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, description='Confidence level'),
-                                'imageID': openapi.Schema(type=openapi.TYPE_INTEGER, description='Image ID'),
                             }
                         )
                     }
@@ -104,10 +88,8 @@ class PredFacenetView(APIView):
                         "error": "false",
                         "message": "success",
                         "predictionResult": {
-                            "UserID": "vicky",
-                            "timestamp": "2024-07-03T14:05:49.439126",
-                            "confidence": 0.9121062518765518,
-                            "imageID": 13
+                            "UserID": "18999687-c74f-419e-9377-8f4056b41612",
+                            "confidence": 99.79705214500427,
                         }
                     }
                 }
