@@ -35,53 +35,6 @@ def classify_face(face_bytes):
 class DetectFacesCameraView(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
-    @swagger_auto_schema(
-        tags=['Live Detection Using Camera'],
-        manual_parameters=[
-            openapi.Parameter(
-                name='image', 
-                in_=openapi.IN_FORM, 
-                type=openapi.TYPE_STRING, 
-                description='Base64 encoded image',
-                required=True
-            )
-        ],
-        responses={
-            200: openapi.Response(
-                'Success',
-                openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'UserID': openapi.Schema(type=openapi.TYPE_STRING, description='User ID of the detected face'),
-                        'confidence': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, description='Confidence level'),
-                    }
-                ),
-                examples={
-                    'application/json': {
-                        "UserID": "18999687-c74f-419e-9377-8f4056b41612",
-                        "confidence": 99.79705214500427,
-                    }
-                }
-            ),
-            400: 'Bad Request',
-            500: 'Internal Server Error'
-        }
-    )  
-
-    def post(self, request):
-        
-        image_base64 = request.data.get("image")
-        if not image_base64:
-            return JsonResponse({"error": "No image provided"}, status=400)
-
-        # Decode the base64 image
-        face_bytes = base64.b64decode(image_base64)
-
-        # Initialize OpenCV Cascade Classifier
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        nparr = np.fromstring(face_bytes, np.uint8)
-        img_np = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
         # Perform face detection
         gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
         faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
