@@ -14,7 +14,7 @@ from model_api.models import SaveImagesModel
 
 # Define directory path
 BASE_PATH = os.getcwd()
-MODEL_H5_PATH = os.path.normpath(BASE_PATH + os.sep + 'model_h5'+ os.sep + 'updated_mtcnn_facenet_mlp_model.h5')
+MODEL_H5_PATH = os.path.normpath(BASE_PATH + os.sep + 'model_h5'+ os.sep + 'updated_mtcnn_facenet_ann_model.h5')
 MODEL = tf.keras.models.load_model(MODEL_H5_PATH, compile=False, custom_objects={'KerasLayer': hub.KerasLayer})
 CONFIG_PATH = os.path.normpath(BASE_PATH + os.sep + 'config')
 

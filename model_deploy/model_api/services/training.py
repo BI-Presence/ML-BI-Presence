@@ -16,7 +16,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 BASE_PATH = os.getcwd()
 CONFIG_PATH = os.path.normpath(BASE_PATH + os.sep + 'config')
 DATASET_PATH = os.path.normpath(BASE_PATH + os.sep + 'dataset')
-MODEL_H5_PATH = os.path.normpath(BASE_PATH + os.sep + 'model_h5' + os.sep + 'updated_mtcnn_facenet_mlp_model.h5')
+MODEL_H5_PATH = os.path.normpath(BASE_PATH + os.sep + 'model_h5' + os.sep + 'updated_mtcnn_facenet_ann_model.h5')
 
 class FACELOADING:
     def __init__(self, directory):
@@ -205,7 +205,7 @@ def train_model():
 
         print(num_classes)
 
-        # Define the MLP model
+        # Define the ANN model
         model = Sequential()
         model.add(Dense(512, input_shape=(X_train_norm.shape[1],), activation='relu'))
         model.add(Dropout(0.5))
@@ -264,7 +264,7 @@ def clear_dataset_folder():
 
 
 def send_api_request(uid_list, status):
-    url = "https://a02f-103-243-178-32.ngrok-free.app/api/trainings/update-trainings"
+    url = "https://dbb4-103-243-178-32.ngrok-free.app/api/trainings/update-trainings"
     data = []
 
     # Loop through each UID in uid_list and create a dictionary for each UID and status
