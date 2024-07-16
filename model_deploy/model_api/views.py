@@ -1,27 +1,94 @@
+import cv2
+import time
 from django.shortcuts import render
+from django.http import StreamingHttpResponse, JsonResponse, HttpRequest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response 
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from model_api.services.prediction import Prediction
-from model_api.services.training import train_model
-from model_api.services.training import check_new_uid
-from model_api.services.live_predict import LivePrediction
-import cv2
-from django.http import JsonResponse, HttpRequest
-from django.core.files.uploadedfile import SimpleUploadedFile
-import time
-from collections import Counter
-import threading
 from rest_framework.views import APIView
-import base64
-import numpy as np
+from model_api.services.prediction import Prediction
+from model_api.services.training import train_model, check_new_uid
+from model_api.services.live_predict import LivePrediction
+import threading
+import requests
 
 # Index
 def index(request):
     return render(request, 'detection/index.html')
 
-# Function to classify face
+# Testing with Camera
+def detect_faces_camera(request):
+    # Initialize OpenCV Cascade Classifier
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+    # Function to generate frames from camera
+    def gen_frames():
+        cap = cv2.VideoCapture(0)
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # Perform face detection
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
+
+            # Draw rectangles around detected faces and display UserID and confidence
+            for (x, y, w, h) in faces:
+                cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+                
+                # Pause the video feed and classify the detected face
+                face_img = frame[y:y+h, x:x+w]
+                _, jpeg = cv2.imencode('.jpg', face_img)
+                face_bytes = jpeg.tobytes()
+                result = classify_face(face_bytes)
+
+                user_id = result['predictionResult']['UserID'] 
+                confidence = result['predictionResult']['confidence'] 
+
+                if (user_id != "unknown"):
+                    send_api_request(user_id, confidence)
+
+                # Display UserID and confidence inside the blue rectangle
+                text = f'ID: {user_id}, Conf: {confidence:.2f}'
+                text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                text_w, text_h = text_size
+
+                cv2.rectangle(frame, (x, y - text_h - 10), (x + text_w, y), (255, 0, 0), cv2.FILLED)
+                cv2.putText(frame, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+            # Convert frame to JPEG format for web display
+            _, jpeg = cv2.imencode('.jpg', frame)
+            frame_bytes = jpeg.tobytes()
+
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+    response = StreamingHttpResponse(gen_frames(), content_type='multipart/x-mixed-replace; boundary=frame')
+    return response
+
+def send_api_request(user_id, confidence):
+    print('SEND API :',user_id, confidence)
+    url = "https://dbb4-103-243-178-32.ngrok-free.app/api/presences/ml-result" # URL endpoint
+
+    # Create a dictionary with user_id and confidence
+    data = {
+        "confidence": confidence,
+        "userId": user_id
+    }
+
+    print (data)
+
+    try:
+        response = requests.post(url, json=data)
+        response.raise_for_status()
+        print(f"API request successful: {response}")
+    except requests.exceptions.RequestException as e:
+        print(f"API request failed: {e}")
+
 def classify_face(face_bytes):
     prediction_obj = LivePrediction()
     face_file = SimpleUploadedFile("detected_face.jpg", face_bytes, content_type="image/jpeg")
@@ -30,27 +97,6 @@ def classify_face(face_bytes):
     mock_request.FILES['media'] = face_file
     response_dict = prediction_obj.predict(mock_request)
     return response_dict['response']
-
-# API endpoint for face detection and classification
-class DetectFacesCameraView(APIView):
-    parser_classes = (MultiPartParser, FormParser)
-
-        # Perform face detection
-        gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
-
-        if len(faces) == 0:
-            return JsonResponse({"error": "No faces detected"}, status=200)
-
-        # Take the first detected face for classification
-        (x, y, w, h) = faces[0]
-        face_img = img_np[y:y+h, x:x+w]
-        _, jpeg = cv2.imencode('.jpg', face_img)
-        face_bytes = jpeg.tobytes()
-
-        result = classify_face(face_bytes)
-        print (result)
-        return JsonResponse(result, status=200)
 
 class PredFacenetView(APIView):
     parser_classes = (MultiPartParser, FormParser)
@@ -78,7 +124,9 @@ class PredFacenetView(APIView):
                             type=openapi.TYPE_OBJECT,
                             properties={
                                 'UserID': openapi.Schema(type=openapi.TYPE_STRING, description='User ID'),
+                                'timestamp': openapi.Schema(type=openapi.TYPE_STRING, description='Timestamp'),
                                 'confidence': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, description='Confidence level'),
+                                'imageID': openapi.Schema(type=openapi.TYPE_INTEGER, description='Image ID'),
                             }
                         )
                     }
@@ -88,8 +136,10 @@ class PredFacenetView(APIView):
                         "error": "false",
                         "message": "success",
                         "predictionResult": {
-                            "UserID": "18999687-c74f-419e-9377-8f4056b41612",
-                            "confidence": 99.79705214500427,
+                            "UserID": "vicky",
+                            "timestamp": "2024-07-03T14:05:49.439126",
+                            "confidence": 0.9121062518765518,
+                            "imageID": 13
                         }
                     }
                 }
@@ -127,7 +177,7 @@ class TrainModelView(APIView):
                 ),
                 examples={
                     'application/json': {
-                        "message": "Pelatihan model dimulai."
+                        "message": "Model training started."
                     }
                 }
             ),
@@ -143,7 +193,7 @@ class TrainModelView(APIView):
                 examples={
                     'application/json': {
                         "error": "true",
-                        "message": 'Setel parameter train ke true untuk memulai pelatihan.'
+                        "message": 'Set train parameter to true to start training.'
                     }
                 }
             ),
@@ -169,16 +219,15 @@ class TrainModelView(APIView):
         train_param = request.query_params.get('train', '').lower()
 
         if train_param != 'true':
-            return Response({'error': 'true', 'message': 'Setel parameter train ke true untuk memulai pelatihan.'}, status=400)
+            return Response({'error': 'true', 'message': 'Set the train parameter to true to start training.'}, status=400)
 
         try:
             new_uid = check_new_uid()
             if new_uid is None:
-                return Response({'error': 'true', 'message': 'Tidak ada UID baru. Pelatihan tidak dimulai.'}, status=500)
+                return Response({'error': 'true', 'message': 'There is no new UID. Training not started.'}, status=500)
             thread = threading.Thread(target=train_model)
             thread.start()
-            return Response({'error': 'false', 'message': 'Pelatihan model dimulai.'}, status=200)
-
+            return Response({'error': 'false', 'message': 'Model training started.'}, status=200)
+ 
         except Exception as e:
             return Response({'error': 'true', 'message': str(e)}, status=500)
-
