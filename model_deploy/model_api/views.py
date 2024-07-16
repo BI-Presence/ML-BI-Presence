@@ -12,6 +12,7 @@ from model_api.services.prediction import Prediction
 from model_api.services.training import train_model, check_new_uid
 from model_api.services.live_predict import LivePrediction
 import threading
+import requests
 
 # Index
 def index(request):
@@ -25,17 +26,11 @@ def detect_faces_camera(request):
     # Function to generate frames from camera
     def gen_frames():
         cap = cv2.VideoCapture(0)
-        prev_time = 0  # Initialize previous time for FPS calculation
 
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
-
-            # Calculate FPS
-            curr_time = time.time()
-            fps = 1 / (curr_time - prev_time)
-            prev_time = curr_time
 
             # Perform face detection
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -50,10 +45,11 @@ def detect_faces_camera(request):
                 _, jpeg = cv2.imencode('.jpg', face_img)
                 face_bytes = jpeg.tobytes()
                 result = classify_face(face_bytes)
-                print (result)
 
                 user_id = result['predictionResult']['UserID'] 
                 confidence = result['predictionResult']['confidence'] 
+
+                send_api_request(user_id, confidence)
 
                 # Display UserID and confidence inside the blue rectangle
                 text = f'ID: {user_id}, Conf: {confidence:.2f}'
@@ -62,9 +58,6 @@ def detect_faces_camera(request):
 
                 cv2.rectangle(frame, (x, y - text_h - 10), (x + text_w, y), (255, 0, 0), cv2.FILLED)
                 cv2.putText(frame, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-
-            # Display FPS on the frame
-            cv2.putText(frame, f'FPS: {fps:.2f}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
 
             # Convert frame to JPEG format for web display
             _, jpeg = cv2.imencode('.jpg', frame)
@@ -75,6 +68,25 @@ def detect_faces_camera(request):
 
     response = StreamingHttpResponse(gen_frames(), content_type='multipart/x-mixed-replace; boundary=frame')
     return response
+
+def send_api_request(user_id, confidence):
+    print('SEND API :',user_id, confidence)
+    url = "https://dbb4-103-243-178-32.ngrok-free.app/api/presences/ml-result" # URL endpoint
+
+    # Create a dictionary with user_id and confidence
+    data = {
+        "confidence": confidence,
+        "userId": user_id
+    }
+
+    print (data)
+
+    try:
+        response = requests.post(url, json=data)
+        response.raise_for_status()
+        print(f"API request successful: {response}")
+    except requests.exceptions.RequestException as e:
+        print(f"API request failed: {e}")
 
 def classify_face(face_bytes):
     prediction_obj = LivePrediction()
