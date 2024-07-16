@@ -15,7 +15,7 @@ from model_api.models import SaveImagesModel
 
 # Define directory path
 BASE_PATH = os.getcwd()
-MODEL_H5_PATH = os.path.normpath(BASE_PATH + os.sep + 'model_h5'+ os.sep + 'updated_mtcnn_facenet_mlp_model.h5')
+MODEL_H5_PATH = os.path.normpath(BASE_PATH + os.sep + 'model_h5'+ os.sep + 'updated_mtcnn_facenet_ann_model.h5')
 MODEL = tf.keras.models.load_model(MODEL_H5_PATH, compile=False, custom_objects={'KerasLayer': hub.KerasLayer})
 CONFIG_PATH = os.path.normpath(BASE_PATH + os.sep + 'config')
 
@@ -85,16 +85,8 @@ class Prediction:
         # Convert the uploaded image file to a NumPy array
         file_bytes = np.asarray(bytearray(image_file.read()), dtype=np.uint8)
 
-        # Debug: Check if file_bytes is empty or malformed
-        if len(file_bytes) == 0:
-            raise Exception("Empty or corrupted image file.")
-
         # Decode the image using OpenCV
         img = cv.imdecode(file_bytes, cv.IMREAD_COLOR)
-
-        # Check if the image decoding was successful
-        if img is None:
-            raise Exception("Failed to decode image.")
 
         # Convert the image to RGB
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
@@ -133,19 +125,19 @@ class Prediction:
 
         return embedding
 
-    def save_image_to_database(self, image_file):
-        # Save the image to the database
-        try:
-            # Create an instance of ImageModel and save the image
-            new_image = SaveImagesModel(fileName=image_file)
-            new_image.save()
+    # def save_image_to_database(self, image_file):
+    #     # Save the image to the database
+    #     try:
+    #         # Create an instance of ImageModel and save the image
+    #         new_image = SaveImagesModel(fileName=image_file)
+    #         new_image.save()
             
-            # Generate the URL for the saved image
-            image_url = f'/media/{new_image.fileName}'
+    #         # Generate the URL for the saved image
+    #         image_url = f'/media/{new_image.fileName}'
             
-            return new_image, image_url  # Optionally return the saved instance and URL for further processing
-        except Exception as e:
-            raise Exception(f"Failed to save image to database: {str(e)}")
+    #         return new_image, image_url  # Optionally return the saved instance and URL for further processing
+    #     except Exception as e:
+    #         raise Exception(f"Failed to save image to database: {str(e)}")
 
     def predict(self, request):
         # Initialize the return dictionary
@@ -163,14 +155,14 @@ class Prediction:
             # Make Prediction
             predicted_label, confidence_score = get_prediction(embedding)
 
-            # Save the image to the database and get the URL
-            saved_image, image_url = self.save_image_to_database(image_file)
+            # # Save the image to the database and get the URL
+            # saved_image, image_url = self.save_image_to_database(image_file)
 
             # Create prediction result dictionary
             prediction_result = {
                 "UserID": predicted_label,
                 "confidence": confidence_score,  # Ensure confidence_score is in percentage
-                "imageURL": image_url
+                # "imageURL": image_url
             }
 
             # Create result dictionary
