@@ -49,7 +49,8 @@ def detect_faces_camera(request):
                 user_id = result['predictionResult']['UserID'] 
                 confidence = result['predictionResult']['confidence'] 
 
-                send_api_request(user_id, confidence)
+                if (user_id != "unknown"):
+                    send_api_request(user_id, confidence)
 
                 # Display UserID and confidence inside the blue rectangle
                 text = f'ID: {user_id}, Conf: {confidence:.2f}'
