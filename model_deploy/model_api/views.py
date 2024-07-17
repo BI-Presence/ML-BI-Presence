@@ -35,37 +35,40 @@ def detect_faces_camera(request):
 
             # Perform face detection
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=6)
+            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
 
             # Draw rectangles around detected faces and display UserID and confidence
             for (x, y, w, h) in faces:
-                cv2.rectangle(frame, (x, y), (x+w, y+h), blue_color, 2)
-                
+
                 # Pause the video feed and classify the detected face
                 face_img = frame[y:y+h, x:x+w]
                 _, jpeg = cv2.imencode('.jpg', face_img)
                 face_bytes = jpeg.tobytes()
                 result = classify_face(face_bytes)
 
-                user_id = result['predictionResult']['UserID'] 
-                confidence = result['predictionResult']['confidence'] 
+                user_id = result['predictionResult']['UserID']
+                confidence = result['predictionResult']['confidence']
 
-                if user_id == "unkown":
-                    user_id = "00000000-0000-0000-0000-000000000000"
+                if confidence >= 50:
 
-                response = send_api_request(user_id, confidence)
+                    cv2.rectangle(frame, (x, y), (x+w, y+h), blue_color, 2)
 
-                # Display fullName and confidence inside the blue rectangle
-                if response:
-                    text = f'Name: {response["fullName"]}, Conf: {confidence:.2f}'
-                else: 
-                    text = f'Tidak ada response dari API'
+                    if user_id == "unknown":
+                        user_id = "00000000-0000-0000-0000-000000000000"
 
-                text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-                text_w, text_h = text_size
+                    response = send_api_request(user_id, confidence)
+                    
+                    # Display fullName and confidence inside the blue rectangle
+                    if response:
+                        text = f'Name: {response["fullName"]}, Conf: {confidence:.2f}'
+                    else: 
+                        text = 'Tidak ada response dari API'
 
-                cv2.rectangle(frame, (x, y - text_h - 10), (x + text_w, y), blue_color, cv2.FILLED)
-                cv2.putText(frame, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                    text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                    text_w, text_h = text_size
+
+                    cv2.rectangle(frame, (x, y - text_h - 10), (x + text_w, y), blue_color, cv2.FILLED)
+                    cv2.putText(frame, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
             # Convert frame to JPEG format for web display
             _, jpeg = cv2.imencode('.jpg', frame)
