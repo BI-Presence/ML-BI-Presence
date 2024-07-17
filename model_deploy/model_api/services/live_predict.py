@@ -59,7 +59,7 @@ def get_prediction(embedding):
 
     # Check confidence score and determine if the prediction should be considered unknown
     if confidence_score < 0.9:
-        predicted_label = "unknown"
+        predicted_label = "00000000-0000-0000-0000-000000000000"
 
     # Convert confidence score to percentage
     confidence_percentage = confidence_score * 100
@@ -71,9 +71,6 @@ class LivePrediction:
     parser_classes = [MultiPartParser]
 
     def preprocess_image(self, image_file):
-        # file_extension = os.path.splitext(image_file.name)[1].lower()
-        # if file_extension not in ['.jpg', '.jpeg', '.png']:
-        #     raise Exception("Unsupported file type.")
 
         # Convert the uploaded image file to a NumPy array
         file_bytes = np.asarray(bytearray(image_file.read()), dtype=np.uint8)
@@ -93,20 +90,6 @@ class LivePrediction:
         embedding = EMBEDDER.embeddings(face_img)[0]  # 512D image (1x512)
 
         return embedding
-
-    # def save_image_to_database(self, image_file):
-    #     # Save the image to the database
-    #     try:
-    #         # Create an instance of ImageModel and save the image
-    #         new_image = SaveImagesModel(fileName=image_file)
-    #         new_image.save()
-            
-    #         # Generate the URL for the saved image
-    #         image_url = f'/media/{new_image.fileName}'
-            
-    #         return new_image, image_url  # Optionally return the saved instance and URL for further processing
-    #     except Exception as e:
-    #         raise Exception(f"Failed to save image to database: {str(e)}")
 
     def predict(self, request):
         # Initialize the return dictionary
