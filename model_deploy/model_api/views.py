@@ -27,6 +27,18 @@ def detect_faces_camera(request):
     def gen_frames():
         cap = cv2.VideoCapture(0)
 
+        def classify_and_send(face_img):
+            # Classify the detected face
+            _, jpeg = cv2.imencode('.jpg', face_img)
+            face_bytes = jpeg.tobytes()
+            result = classify_face(face_bytes)
+
+            user_id = result['predictionResult']['UserID']
+            confidence = result['predictionResult']['confidence']
+
+            if user_id != "unknown":
+                send_api_request(user_id, confidence)
+
         while True:
             ret, frame = cap.read()
             if not ret:
@@ -34,29 +46,22 @@ def detect_faces_camera(request):
 
             # Perform face detection
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
+            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=8, minSize=(30, 30))
 
-            # Draw rectangles around detected faces and display UserID and confidence
+            # Draw rectangles around detected faces and classify
             for (x, y, w, h) in faces:
-                cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
-                
-                # Pause the video feed and classify the detected face
-                face_img = frame[y:y+h, x:x+w]
-                _, jpeg = cv2.imencode('.jpg', face_img)
-                face_bytes = jpeg.tobytes()
-                result = classify_face(face_bytes)
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
-                user_id = result['predictionResult']['UserID'] 
-                confidence = result['predictionResult']['confidence'] 
+                # Extract face image
+                face_img = frame[y:y + h, x:x + w]
 
-                if (user_id != "unknown"):
-                    send_api_request(user_id, confidence)
+                # Start a new thread for classification and API request
+                user_id = threading.Thread(target=classify_and_send, args=(face_img,)).start()
 
-                # Display UserID and confidence inside the blue rectangle
-                text = f'ID: {user_id}, Conf: {confidence:.2f}'
+                # Display UserID and confidence inside the blue rectangle (initial placeholders)
+                text = f'Face Detected'
                 text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
                 text_w, text_h = text_size
-
                 cv2.rectangle(frame, (x, y - text_h - 10), (x + text_w, y), (255, 0, 0), cv2.FILLED)
                 cv2.putText(frame, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
@@ -71,8 +76,8 @@ def detect_faces_camera(request):
     return response
 
 def send_api_request(user_id, confidence):
-    print('SEND API :',user_id, confidence)
-    url = "https://dbb4-103-243-178-32.ngrok-free.app/api/presences/ml-result" # URL endpoint
+    print('SEND API :', user_id, confidence)
+    url = "https://dbb4-103-243-178-32.ngrok-free.app/api/presences/ml-result"  # URL endpoint
 
     # Create a dictionary with user_id and confidence
     data = {
@@ -80,7 +85,7 @@ def send_api_request(user_id, confidence):
         "userId": user_id
     }
 
-    print (data)
+    print(data)
 
     try:
         response = requests.post(url, json=data)
