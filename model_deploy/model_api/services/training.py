@@ -16,6 +16,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 BASE_PATH = os.getcwd()
 CONFIG_PATH = os.path.normpath(BASE_PATH + os.sep + 'config')
 DATASET_PATH = os.path.normpath(BASE_PATH + os.sep + 'dataset')
+# DATASET_PATH = os.path.normpath('C:/Users/abednego/Documents/Magang-BI/Pengembangan Model Deteksi Wajah/training/data')
 MODEL_H5_PATH = os.path.normpath(BASE_PATH + os.sep + 'model_h5' + os.sep + 'updated_mtcnn_facenet_ann_model.h5')
 
 class FACELOADING:
