@@ -22,6 +22,7 @@ def index(request):
 def detect_faces_camera(request):
     # Initialize OpenCV Cascade Classifier
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    blue_color = (153, 86, 1)
 
     # Function to generate frames from camera
     def gen_frames():
@@ -38,27 +39,36 @@ def detect_faces_camera(request):
 
             # Draw rectangles around detected faces and display UserID and confidence
             for (x, y, w, h) in faces:
-                cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
-                
+              
                 # Pause the video feed and classify the detected face
                 face_img = frame[y:y+h, x:x+w]
                 _, jpeg = cv2.imencode('.jpg', face_img)
                 face_bytes = jpeg.tobytes()
                 result = classify_face(face_bytes)
 
-                user_id = result['predictionResult']['UserID'] 
-                confidence = result['predictionResult']['confidence'] 
+                user_id = result['predictionResult']['UserID']
+                confidence = result['predictionResult']['confidence']
 
-                if (user_id != "unknown"):
-                    send_api_request(user_id, confidence)
+                if confidence >= 50:
 
-                # Display UserID and confidence inside the blue rectangle
-                text = f'ID: {user_id}, Conf: {confidence:.2f}'
-                text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-                text_w, text_h = text_size
+                    cv2.rectangle(frame, (x, y), (x+w, y+h), blue_color, 2)
 
-                cv2.rectangle(frame, (x, y - text_h - 10), (x + text_w, y), (255, 0, 0), cv2.FILLED)
-                cv2.putText(frame, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                    if user_id == "unknown":
+                        user_id = "00000000-0000-0000-0000-000000000000"
+
+                    response = send_api_request(user_id, confidence)
+                    
+                    # Display fullName and confidence inside the blue rectangle
+                    if response:
+                        text = f'Name: {response["fullName"]}, Conf: {confidence:.2f}'
+                    else: 
+                        text = 'Tidak ada response dari API'
+
+                    text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                    text_w, text_h = text_size
+
+                    cv2.rectangle(frame, (x, y - text_h - 10), (x + text_w, y), blue_color, cv2.FILLED)
+                    cv2.putText(frame, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
             # Convert frame to JPEG format for web display
             _, jpeg = cv2.imencode('.jpg', frame)
@@ -71,8 +81,8 @@ def detect_faces_camera(request):
     return response
 
 def send_api_request(user_id, confidence):
+    url = "https://97cf-103-243-178-32.ngrok-free.app/api/presences/ml-result" # URL endpoint
     print('SEND API :',user_id, confidence)
-    url = "https://dbb4-103-243-178-32.ngrok-free.app/api/presences/ml-result" # URL endpoint
 
     # Create a dictionary with user_id and confidence
     data = {
@@ -80,14 +90,24 @@ def send_api_request(user_id, confidence):
         "userId": user_id
     }
 
-    print (data)
+    print('SEND API :',data)
 
     try:
         response = requests.post(url, json=data)
-        response.raise_for_status()
-        print(f"API request successful: {response}")
+        print(f"API request status code: {response.status_code}")
+
+        if response.status_code == 200:
+            # Get JSON response data
+            json_response = response.json()
+            print(f"JSON Response:{json_response}")
+            return json_response
+        else:
+            print(f"API request failed with status code: {response.status_code}")
+        
     except requests.exceptions.RequestException as e:
         print(f"API request failed: {e}")
+
+    return None
 
 def classify_face(face_bytes):
     prediction_obj = LivePrediction()
