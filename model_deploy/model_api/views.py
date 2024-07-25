@@ -13,62 +13,77 @@ from model_api.services.training import train_model, check_new_uid
 from model_api.services.live_predict import LivePrediction
 import threading
 import requests
+from ultralytics import YOLO
+import os
 
-# Index
 def index(request):
     return render(request, 'detection/index.html')
 
-# Testing with Camera
 def detect_faces_camera(request):
-    # Initialize OpenCV Cascade Classifier
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    BASE_PATH = os.getcwd()
+    CONFIG_PATH = os.path.join(BASE_PATH, 'config')
+    YOLO_MODELv8 = os.path.join(CONFIG_PATH, 'yolov8n-face.pt')
+
+    # Initialize YOLO model for face detection
+    model = YOLO(YOLO_MODELv8)
+
     blue_color = (153, 86, 1)
 
     # Function to generate frames from camera
     def gen_frames():
         cap = cv2.VideoCapture(0)
-
+        if not cap.isOpened():
+            print("Error: Camera not opened.")
+            return
+        
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
 
-            # Perform face detection
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
-
-            # Draw rectangles around detected faces and display UserID and confidence
-            for (x, y, w, h) in faces:
-              
-                # Pause the video feed and classify the detected face
-                face_img = frame[y:y+h, x:x+w]
-                _, jpeg = cv2.imencode('.jpg', face_img)
-                face_bytes = jpeg.tobytes()
-                result = classify_face(face_bytes)
-
-                user_id = result['predictionResult']['UserID']
-                confidence = result['predictionResult']['confidence']
-
-                if confidence >= 50:
-
-                    cv2.rectangle(frame, (x, y), (x+w, y+h), blue_color, 2)
-
-                    if user_id == "unknown":
-                        user_id = "00000000-0000-0000-0000-000000000000"
-
-                    response = send_api_request(user_id, confidence)
+            # Perform face detection using YOLO
+            results = model(frame)
+            if not results or not results[0].boxes:
+                continue
+            
+            # Process each result (assuming results is a list of detections)
+            for detection in results[0].boxes:
+                x1, y1, x2, y2 = map(int, detection.xyxy[0])
+                
+                if detection.conf[0] >= 0.3:  # You can adjust this threshold
                     
-                    # Display fullName and confidence inside the blue rectangle
-                    if response:
-                        text = f'Name: {response["fullName"]}, Conf: {confidence:.2f}'
-                    else: 
-                        text = 'Tidak ada response dari API'
+                    # Ensure the coordinates are within frame bounds
+                    x1, y1, x2, y2 = max(x1, 0), max(y1, 0), min(x2, frame.shape[1]), min(y2, frame.shape[0])
+                    
+                    # Draw rectangle around face
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), blue_color, 2)
 
-                    text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-                    text_w, text_h = text_size
+                    # Extract face image
+                    face_img = frame[y1:y2, x1:x2]
+                    _, jpeg = cv2.imencode('.jpg', face_img)
+                    face_bytes = jpeg.tobytes()
+                    result = classify_face(face_bytes)  # Assuming classify_face is your classification function
 
-                    cv2.rectangle(frame, (x, y - text_h - 10), (x + text_w, y), blue_color, cv2.FILLED)
-                    cv2.putText(frame, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                    user_id = result.get('predictionResult', {}).get('UserID', 'unknown')
+                    confidence = result.get('predictionResult', {}).get('confidence', 0)
+
+                    if confidence >= 50:
+                        if user_id == "unknown":
+                            user_id = "00000000-0000-0000-0000-000000000000"
+
+                        response = send_api_request(user_id, confidence)  # Assuming send_api_request is your API function
+
+                        # Display fullName and confidence inside the blue rectangle
+                        if response:
+                            text = f'Name: {response.get("fullName", "Unknown")}, Conf: {confidence:.2f}'
+                        else:
+                            text = 'No response from API'
+
+                        text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                        text_w, text_h = text_size
+
+                        cv2.rectangle(frame, (x1, y1 - text_h - 10), (x1 + text_w, y1), blue_color, cv2.FILLED)
+                        cv2.putText(frame, text, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
             # Convert frame to JPEG format for web display
             _, jpeg = cv2.imencode('.jpg', frame)
@@ -81,7 +96,7 @@ def detect_faces_camera(request):
     return response
 
 def send_api_request(user_id, confidence):
-    url = "https://97cf-103-243-178-32.ngrok-free.app/api/presences/ml-result" # URL endpoint
+    url = "https://cca0-103-243-178-32.ngrok-free.app/api/presences/ml-result" # URL endpoint
     print('SEND API :',user_id, confidence)
 
     # Create a dictionary with user_id and confidence

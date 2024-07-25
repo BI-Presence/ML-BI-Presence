@@ -11,3 +11,4 @@ drf-yasg
 django-compressor
 django-cors-headers
 tensorflow-hub
+ultralytics == 8.2.64
