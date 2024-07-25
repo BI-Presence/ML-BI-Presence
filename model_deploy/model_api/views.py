@@ -39,7 +39,7 @@ def detect_faces_camera(request):
 
             # Draw rectangles around detected faces and display UserID and confidence
             for (x, y, w, h) in faces:
-
+              
                 # Pause the video feed and classify the detected face
                 face_img = frame[y:y+h, x:x+w]
                 _, jpeg = cv2.imencode('.jpg', face_img)
@@ -82,6 +82,7 @@ def detect_faces_camera(request):
 
 def send_api_request(user_id, confidence):
     url = "https://97cf-103-243-178-32.ngrok-free.app/api/presences/ml-result" # URL endpoint
+    print('SEND API :',user_id, confidence)
 
     # Create a dictionary with user_id and confidence
     data = {
