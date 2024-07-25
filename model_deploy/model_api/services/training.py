@@ -210,6 +210,8 @@ def train_model():
         model = Sequential()
         model.add(Dense(512, input_shape=(X_train_norm.shape[1],), activation='relu'))
         model.add(Dropout(0.5))
+        model.add(Dense(256, activation='relu'))
+        model.add(Dropout(0.5))
         model.add(Dense(num_classes, activation='softmax'))
 
         # Compile the model
