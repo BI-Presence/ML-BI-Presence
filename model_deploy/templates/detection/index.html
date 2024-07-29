@@ -94,7 +94,7 @@
             });
             
             let formData = new FormData();
-            formData.append('media', faceBlob);
+            formData.append('media', faceBlob, 'face.jpg');
 
             const response = await fetch("{% url 'classify-face' %}", {
                 method: 'POST',
@@ -123,11 +123,11 @@
               let faceRect = faces.get(i);
               let face = dst.roi(faceRect);
               classifyFace(face).then(result => {
-                if (result.confidence >= 50) {
+                if (result.predictionResult && result.predictionResult.confidence >= 50) {
                   let point1 = new cv.Point(faceRect.x, faceRect.y);
                   let point2 = new cv.Point(faceRect.x + faceRect.width, faceRect.y + faceRect.height);
                   cv.rectangle(dst, point1, point2, [255, 0, 0, 255]);
-                  let text = `ID: ${result.user_id}, Conf: ${result.confidence.toFixed(2)}`;
+                  let text = `ID: ${result.predictionResult.UserID}, Conf: ${result.predictionResult.confidence.toFixed(2)}`;
                   let textSize = cv.getTextSize(text, cv.FONT_HERSHEY_SIMPLEX, 0.5, 1);
                   cv.rectangle(dst, new cv.Point(faceRect.x, faceRect.y - textSize.height - 10), new cv.Point(faceRect.x + textSize.width, faceRect.y), [255, 0, 0, 255], cv.FILLED);
                   cv.putText(dst, text, new cv.Point(faceRect.x, faceRect.y - 5), cv.FONT_HERSHEY_SIMPLEX, 0.5, [255, 255, 255, 255], 1);

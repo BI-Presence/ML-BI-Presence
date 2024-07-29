@@ -109,14 +109,17 @@ def send_api_request(user_id, confidence):
 
     return None
 
-def classify_face(face_bytes):
-    prediction_obj = LivePrediction()
-    face_file = SimpleUploadedFile("detected_face.jpg", face_bytes, content_type="image/jpeg")
-    mock_request = HttpRequest()
-    mock_request.method = 'POST'
-    mock_request.FILES['media'] = face_file
-    response_dict = prediction_obj.predict(mock_request)
-    return response_dict['response']
+def classify_face(request):
+    if request.method == 'POST' and request.FILES.get('media'):
+        face_file = request.FILES['media']
+        prediction_obj = LivePrediction()
+        mock_request = HttpRequest()
+        mock_request.method = 'POST'
+        mock_request.FILES['media'] = face_file
+        response_dict = prediction_obj.predict(mock_request)
+        print(response_dict['response'])
+        return JsonResponse({'response': response_dict['response']})
+    return JsonResponse({'error': 'Invalid request'}, status=400)
 
 class PredFacenetView(APIView):
     parser_classes = (MultiPartParser, FormParser)
