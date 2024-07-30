@@ -59,7 +59,7 @@ def get_prediction(embedding):
 
     # Check confidence score and determine if the prediction should be considered unknown
     if confidence_score < 0.9:
-        predicted_label = "unknown"
+        predicted_label = "00000000-0000-0000-0000-000000000000"
 
     # Convert confidence score to percentage
     confidence_percentage = confidence_score * 100

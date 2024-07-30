@@ -120,8 +120,6 @@ def classify_face(request):
         
         if 'response' in response_dict:
             user_id = response_dict['response']['predictionResult']['UserID']
-            if user_id == "unknown":
-                user_id = "00000000-0000-0000-0000-000000000000"
             confidence = response_dict['response']['predictionResult']['confidence']
             response = send_api_request(user_id, confidence)
 
