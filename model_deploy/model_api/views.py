@@ -190,15 +190,6 @@ class PredFacenetView(APIView):
 class TrainModelView(APIView):
     @swagger_auto_schema(
         tags=['Train model'],
-        manual_parameters=[
-            openapi.Parameter(
-                name='train',
-                in_=openapi.IN_QUERY,
-                type=openapi.TYPE_BOOLEAN,
-                description='Set to True to trigger model training.',
-                required=True
-            )
-        ],
         responses={
             200: openapi.Response(
                 'Model training started.',
@@ -211,22 +202,6 @@ class TrainModelView(APIView):
                 examples={
                     'application/json': {
                         "message": "Model training started."
-                    }
-                }
-            ),
-            400: openapi.Response(
-                'Bad Request',
-                openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING, description='Error status'),
-                        'message': openapi.Schema(type=openapi.TYPE_STRING, description='Message')
-                    }
-                ),
-                examples={
-                    'application/json': {
-                        "error": "true",
-                        "message": 'Set train parameter to true to start training.'
                     }
                 }
             ),
@@ -249,11 +224,6 @@ class TrainModelView(APIView):
         }
     )
     def post(self, request):
-        train_param = request.query_params.get('train', '').lower()
-
-        if train_param != 'true':
-            return Response({'error': 'true', 'message': 'Set the train parameter to true to start training.'}, status=400)
-
         try:
             new_uid = check_new_uid()
             if new_uid is None:
