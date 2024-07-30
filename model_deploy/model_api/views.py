@@ -81,7 +81,7 @@ def index(request):
 #     return response
 
 def send_api_request(user_id, confidence):
-    url = "https://97cf-103-243-178-32.ngrok-free.app/api/presences/ml-result" # URL endpoint
+    url = "https://0da5-103-243-178-32.ngrok-free.app/api/presences/ml-result" # URL endpoint
     print('SEND API :',user_id, confidence)
 
     # Create a dictionary with user_id and confidence
@@ -117,8 +117,20 @@ def classify_face(request):
         mock_request.method = 'POST'
         mock_request.FILES['media'] = face_file
         response_dict = prediction_obj.predict(mock_request)
-        print(response_dict['response'])
-        return JsonResponse({'response': response_dict['response']})
+        
+        if 'response' in response_dict:
+            user_id = response_dict['response']['predictionResult']['UserID']
+            if user_id == "unknown":
+                user_id = "00000000-0000-0000-0000-000000000000"
+            confidence = response_dict['response']['predictionResult']['confidence']
+            response = send_api_request(user_id, confidence)
+
+            return JsonResponse({
+                'confidence': confidence,
+                'response': response
+            })
+        else:
+            return JsonResponse({'error': 'Invalid response format'}, status=500)
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
 class PredFacenetView(APIView):
