@@ -18,67 +18,67 @@ import requests
 def index(request):
     return render(request, 'detection/index.html')
 
-# Testing with Camera
-def detect_faces_camera(request):
-    # Initialize OpenCV Cascade Classifier
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-    blue_color = (153, 86, 1)
+# # Testing with Camera
+# def detect_faces_camera(request):
+#     # Initialize OpenCV Cascade Classifier
+#     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+#     blue_color = (153, 86, 1)
 
-    # Function to generate frames from camera
-    def gen_frames():
-        cap = cv2.VideoCapture(0)
+#     # Function to generate frames from camera
+#     def gen_frames():
+#         cap = cv2.VideoCapture(0)
 
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
+#         while True:
+#             ret, frame = cap.read()
+#             if not ret:
+#                 break
 
-            # Perform face detection
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
+#             # Perform face detection
+#             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+#             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
 
-            # Draw rectangles around detected faces and display UserID and confidence
-            for (x, y, w, h) in faces:
+#             # Draw rectangles around detected faces and display UserID and confidence
+#             for (x, y, w, h) in faces:
               
-                # Pause the video feed and classify the detected face
-                face_img = frame[y:y+h, x:x+w]
-                _, jpeg = cv2.imencode('.jpg', face_img)
-                face_bytes = jpeg.tobytes()
-                result = classify_face(face_bytes)
+#                 # Pause the video feed and classify the detected face
+#                 face_img = frame[y:y+h, x:x+w]
+#                 _, jpeg = cv2.imencode('.jpg', face_img)
+#                 face_bytes = jpeg.tobytes()
+#                 result = classify_face(face_bytes)
 
-                user_id = result['predictionResult']['UserID']
-                confidence = result['predictionResult']['confidence']
+#                 user_id = result['predictionResult']['UserID']
+#                 confidence = result['predictionResult']['confidence']
 
-                if confidence >= 50:
+#                 if confidence >= 50:
 
-                    cv2.rectangle(frame, (x, y), (x+w, y+h), blue_color, 2)
+#                     cv2.rectangle(frame, (x, y), (x+w, y+h), blue_color, 2)
 
-                    if user_id == "unknown":
-                        user_id = "00000000-0000-0000-0000-000000000000"
+#                     if user_id == "unknown":
+#                         user_id = "00000000-0000-0000-0000-000000000000"
 
-                    response = send_api_request(user_id, confidence)
+#                     response = send_api_request(user_id, confidence)
                     
-                    # Display fullName and confidence inside the blue rectangle
-                    if response:
-                        text = f'Name: {response["fullName"]}, Conf: {confidence:.2f}'
-                    else: 
-                        text = 'Tidak ada response dari API'
+#                     # Display fullName and confidence inside the blue rectangle
+#                     if response:
+#                         text = f'Name: {response["fullName"]}, Conf: {confidence:.2f}'
+#                     else: 
+#                         text = 'Tidak ada response dari API'
 
-                    text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-                    text_w, text_h = text_size
+#                     text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+#                     text_w, text_h = text_size
 
-                    cv2.rectangle(frame, (x, y - text_h - 10), (x + text_w, y), blue_color, cv2.FILLED)
-                    cv2.putText(frame, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+#                     cv2.rectangle(frame, (x, y - text_h - 10), (x + text_w, y), blue_color, cv2.FILLED)
+#                     cv2.putText(frame, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
-            # Convert frame to JPEG format for web display
-            _, jpeg = cv2.imencode('.jpg', frame)
-            frame_bytes = jpeg.tobytes()
+#             # Convert frame to JPEG format for web display
+#             _, jpeg = cv2.imencode('.jpg', frame)
+#             frame_bytes = jpeg.tobytes()
 
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+#             yield (b'--frame\r\n'
+#                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
-    response = StreamingHttpResponse(gen_frames(), content_type='multipart/x-mixed-replace; boundary=frame')
-    return response
+#     response = StreamingHttpResponse(gen_frames(), content_type='multipart/x-mixed-replace; boundary=frame')
+#     return response
 
 def send_api_request(user_id, confidence):
     url = "https://97cf-103-243-178-32.ngrok-free.app/api/presences/ml-result" # URL endpoint
