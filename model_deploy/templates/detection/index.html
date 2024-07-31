@@ -156,7 +156,7 @@
 
                 let confidence = result.confidence;
                 let fullName = result.response && result.response.fullName ? result.response.fullName : "Something Went Wrong!";
-                let text = `ID: ${fullName}, Conf: ${confidence.toFixed(2)}`;
+                let text = `Name: ${fullName}, Conf: ${confidence.toFixed(2)}`;
 
                 let ctx = document.getElementById('canvas_output').getContext('2d');
                 ctx.font = '100% Arial';

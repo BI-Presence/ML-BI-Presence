@@ -266,7 +266,7 @@ def clear_dataset_folder():
 
 
 def send_api_request(uid_list, status):
-    url = "https://dbb4-103-243-178-32.ngrok-free.app/api/trainings/update-trainings"
+    url = "http://localhost:5124/api/trainings/update-trainings"
     data = []
 
     # Loop through each UID in uid_list and create a dictionary for each UID and status

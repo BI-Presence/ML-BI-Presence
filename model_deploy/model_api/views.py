@@ -81,7 +81,7 @@ def index(request):
 #     return response
 
 def send_api_request(user_id, confidence):
-    url = "https://0da5-103-243-178-32.ngrok-free.app/api/presences/ml-result" # URL endpoint
+    url = "http://localhost:5124/api/presences/ml-result" # URL endpoint
     print('SEND API :',user_id, confidence)
 
     # Create a dictionary with user_id and confidence
