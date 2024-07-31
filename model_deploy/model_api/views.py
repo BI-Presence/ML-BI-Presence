@@ -43,15 +43,12 @@ def detect_faces_camera(request):
 
             # Perform face detection using YOLO
             results = model(frame)
-            if not results or not results[0].boxes:
-                continue
             
-            # Process each result (assuming results is a list of detections)
-            for detection in results[0].boxes:
-                x1, y1, x2, y2 = map(int, detection.xyxy[0])
-                
-                if detection.conf[0] >= 0.3:  # You can adjust this threshold
-                    
+            if results and results[0].boxes:
+                # Process each result (assuming results is a list of detections)
+                for detection in results[0].boxes:
+                    x1, y1, x2, y2 = map(int, detection.xyxy[0])
+
                     # Ensure the coordinates are within frame bounds
                     x1, y1, x2, y2 = max(x1, 0), max(y1, 0), min(x2, frame.shape[1]), min(y2, frame.shape[0])
                     
@@ -66,37 +63,36 @@ def detect_faces_camera(request):
 
                     user_id = result.get('predictionResult', {}).get('UserID', 'unknown')
                     confidence = result.get('predictionResult', {}).get('confidence', 0)
+                        
+                    text = f'Unknown, Conf: {confidence:.2f}'
 
-                    if confidence >= 50:
-                        if user_id == "unknown":
-                            user_id = "00000000-0000-0000-0000-000000000000"
+                    response = send_api_request(user_id, confidence) 
 
-                        response = send_api_request(user_id, confidence)  # Assuming send_api_request is your API function
-
-                        # Display fullName and confidence inside the blue rectangle
-                        if response:
+                    if response:
+                        if confidence >= 90:
                             text = f'Name: {response.get("fullName", "Unknown")}, Conf: {confidence:.2f}'
                         else:
-                            text = 'No response from API'
-
-                        text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-                        text_w, text_h = text_size
-
-                        cv2.rectangle(frame, (x1, y1 - text_h - 10), (x1 + text_w, y1), blue_color, cv2.FILLED)
-                        cv2.putText(frame, text, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-
+                            text = f'Unknown, Conf: {confidence:.2f}'
+                    else:
+                        text = 'No response from API'
+                        
+                    text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                    text_w, text_h = text_size
+                    cv2.rectangle(frame, (x1, y1 - text_h - 10), (x1 + text_w, y1), blue_color, cv2.FILLED)
+                    cv2.putText(frame, text, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                    
             # Convert frame to JPEG format for web display
             _, jpeg = cv2.imencode('.jpg', frame)
             frame_bytes = jpeg.tobytes()
 
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-
+            
     response = StreamingHttpResponse(gen_frames(), content_type='multipart/x-mixed-replace; boundary=frame')
     return response
 
 def send_api_request(user_id, confidence):
-    url = "https://cca0-103-243-178-32.ngrok-free.app/api/presences/ml-result" # URL endpoint
+    url = "https://d1bf-103-243-178-32.ngrok-free.app/api/presences/ml-result" # URL endpoint
     print('SEND API :',user_id, confidence)
 
     # Create a dictionary with user_id and confidence
@@ -192,15 +188,6 @@ class PredFacenetView(APIView):
 class TrainModelView(APIView):
     @swagger_auto_schema(
         tags=['Train model'],
-        manual_parameters=[
-            openapi.Parameter(
-                name='train',
-                in_=openapi.IN_QUERY,
-                type=openapi.TYPE_BOOLEAN,
-                description='Set to True to trigger model training.',
-                required=True
-            )
-        ],
         responses={
             200: openapi.Response(
                 'Model training started.',
@@ -213,22 +200,6 @@ class TrainModelView(APIView):
                 examples={
                     'application/json': {
                         "message": "Model training started."
-                    }
-                }
-            ),
-            400: openapi.Response(
-                'Bad Request',
-                openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING, description='Error status'),
-                        'message': openapi.Schema(type=openapi.TYPE_STRING, description='Message')
-                    }
-                ),
-                examples={
-                    'application/json': {
-                        "error": "true",
-                        "message": 'Set train parameter to true to start training.'
                     }
                 }
             ),
@@ -251,11 +222,6 @@ class TrainModelView(APIView):
         }
     )
     def post(self, request):
-        train_param = request.query_params.get('train', '').lower()
-
-        if train_param != 'true':
-            return Response({'error': 'true', 'message': 'Set the train parameter to true to start training.'}, status=400)
-
         try:
             new_uid = check_new_uid()
             if new_uid is None:
