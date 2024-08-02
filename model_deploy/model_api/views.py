@@ -14,14 +14,12 @@ from model_api.services.live_predict import LivePrediction
 import threading
 import requests
 
-# Index
 def index(request):
     return render(request, 'detection/index.html')
 
 def send_api_request(user_id, confidence):
-    url = "http://localhost:5124/api/presences/ml-result" # URL endpoint
 
-    print('SEND API :',user_id, confidence)
+    url = "http://localhost:5124/api/presences/ml-result"
 
     # Create a dictionary with user_id and confidence
     data = {
@@ -36,7 +34,6 @@ def send_api_request(user_id, confidence):
         print(f"API request status code: {response.status_code}")
 
         if response.status_code == 200:
-            # Get JSON response data
             json_response = response.json()
             print(f"JSON Response:{json_response}")
             return json_response
