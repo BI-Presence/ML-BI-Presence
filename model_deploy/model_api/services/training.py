@@ -11,6 +11,7 @@ import cv2 as cv
 from mtcnn.mtcnn import MTCNN
 import shutil
 import requests
+import subprocess
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 BASE_PATH = os.getcwd()
@@ -27,10 +28,8 @@ class FACELOADING:
         self.detector = MTCNN()
 
     def preprocess_image(self, filename, new_size=(480, 480)):
-        # Load the image
         t_img = cv.imread(filename)
 
-        # Convert the image to RGB
         t_img = cv.cvtColor(t_img, cv.COLOR_BGR2RGB)
 
         # Resize the image to the new size while maintaining aspect ratio
@@ -40,7 +39,6 @@ class FACELOADING:
         new_height = int(height * scale)
         resized_img = cv.resize(t_img, (new_width, new_height))
 
-        # Detect faces in the resized image
         detections = self.detector.detect_faces(resized_img)
         if not detections:
             raise Exception("No faces detected in the image.")
@@ -48,7 +46,6 @@ class FACELOADING:
         # Extract the coordinates and size of the bounding box from the first detection result
         x, y, w, h = detections[0]['box']
 
-        # Scale the coordinates back to the original image size
         x = int(x / scale)
         y = int(y / scale)
         w = int(w / scale)
@@ -120,9 +117,6 @@ def train_model():
             EMBEDDED_X = []
             Y = []
 
-        # Print the number of elements in Y
-        print(f"Amount of data: {len(Y)}")
-
         # Initiate the FACELOADING class with the dataset directory path
         faceloading = FACELOADING(DATASET_PATH)
 
@@ -143,22 +137,13 @@ def train_model():
         for img in X:
             EMBEDDED_X.append(get_embedding(img))
 
-        # Append new labels to existing labels
         Y.extend(new_Y)
-
-        # Initialize an empty list to store unique labels in order
         unique_labels = []
-
-        # Set to track seen labels
         seen_labels = set()
 
-        # Iterate through each label in Y
         for label in Y:
-            # Check if the label has not been seen before
             if label not in seen_labels:
-                # Add the label to the list of unique labels
                 unique_labels.append(label)
-                # Add the label to the set of seen labels
                 seen_labels.add(label)
 
         # Sort the unique labels alphabetically
@@ -177,33 +162,21 @@ def train_model():
         embeddings_save_file = embeddings_file  # embeddings file path
         np.savez_compressed(embeddings_save_file, EMBEDDED_X, Y)
 
-        # Initiate a LabelEncoder object
         encoder = LabelEncoder()
-
-        # Fit the LabelEncoder to the array Y to learn the classes
         encoder.fit(Y)
-
-        # Transform the labels in Y to encoded labels
         Y_encoded = encoder.transform(Y)
 
-        # Split the data into training (80%) and testing (20%)
         X_train, X_test, Y_train, Y_test = train_test_split(EMBEDDED_X, Y_encoded, test_size=0.2, shuffle=True, random_state=17)
-
-        # Initiate normalizer
         in_encoder = Normalizer(norm='l2')
 
-        # Apply normalization to training data
+        # Apply normalization 
         X_train_norm = in_encoder.transform(X_train)
-
-        # Apply normalization to testing data
         X_test_norm = in_encoder.transform(X_test)
 
         # Convert labels to one-hot encoding
         num_classes = len(np.unique(Y_encoded))
         Y_train_categorical = to_categorical(Y_train, num_classes)
         Y_test_categorical = to_categorical(Y_test, num_classes)
-
-        print(num_classes)
 
         # Define the ANN model
         model = Sequential()
@@ -213,10 +186,8 @@ def train_model():
         model.add(Dropout(0.5))
         model.add(Dense(num_classes, activation='softmax'))
 
-        # Compile the model
+        # Compile and train the model
         model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-
-        # Train the model
         history = model.fit(X_train_norm, Y_train_categorical, epochs=100, batch_size=32, validation_data=(X_test_norm, Y_test_categorical))
 
         # Evaluate the model 
@@ -225,10 +196,8 @@ def train_model():
         val_loss = history.history['val_loss'][-1]
         val_accuracy = history.history['val_accuracy'][-1]
 
-        # Print training loss and accuracy
+        # Print result training and validation
         print(f'Train loss: {train_loss} / Train accuracy: {train_accuracy}')
-
-        # Print validation (test) loss and accuracy
         print(f'Validation loss: {val_loss} / Validation accuracy: {val_accuracy}')
 
         # Save the model
@@ -244,8 +213,11 @@ def train_model():
         train_status = TRAIN_SUCESS
         send_api_request(new_uid, train_status)
 
+        # Run the batch file to restart the Django server
+        restart_server_file = os.path.normpath(CONFIG_PATH + os.sep + 'restart_server.bat')
+        subprocess.run([restart_server_file], check=True)
+
     except Exception as e:
-        # Send status as -1 if an error occurs
         train_status = TRAIN_FAIL
         send_api_request(new_uid, train_status)
         print(f"An error occurred: {e}")
@@ -269,7 +241,6 @@ def send_api_request(uid_list, status):
     url = "http://localhost:5124/api/trainings/update-trainings"
     data = []
 
-    # Loop through each UID in uid_list and create a dictionary for each UID and status
     for uid in uid_list:
         data.append({
             "userId": uid,
