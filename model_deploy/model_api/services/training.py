@@ -29,7 +29,6 @@ class FACELOADING:
 
     def preprocess_image(self, filename, new_size=(480, 480)):
         t_img = cv.imread(filename)
-
         t_img = cv.cvtColor(t_img, cv.COLOR_BGR2RGB)
 
         # Resize the image to the new size while maintaining aspect ratio
@@ -43,7 +42,6 @@ class FACELOADING:
         if not detections:
             raise Exception("No faces detected in the image.")
 
-        # Extract the coordinates and size of the bounding box from the first detection result
         x, y, w, h = detections[0]['box']
 
         x = int(x / scale)
@@ -51,10 +49,7 @@ class FACELOADING:
         w = int(w / scale)
         h = int(h / scale)
 
-        # Crop the detected face region from the original image using the bounding box coordinates
         face_img = t_img[y:y+h, x:x+w]
-
-        # Resize the cropped face image to 160x160
         face_img = cv.resize(face_img, self.target_size)
 
         return face_img
@@ -98,7 +93,6 @@ def train_model():
     TRAIN_SUCESS = 2
     TRAIN_FAIL = -1
     
-    # Get list of folders (classes) in DATASET_PATH
     new_uid = check_new_uid()
     print (new_uid)
 
@@ -117,23 +111,17 @@ def train_model():
             EMBEDDED_X = []
             Y = []
 
-        # Initiate the FACELOADING class with the dataset directory path
         faceloading = FACELOADING(DATASET_PATH)
-
-        # Load the face images (X) and their corresponding labels (Y) from the dataset
         X, new_Y = faceloading.load_classes()
 
-        # Instantiate the FaceNet model
         embedder = FaceNet()
 
-        # Define a function to get the embedding of a face image
         def get_embedding(face_img):
             face_img = face_img.astype('float32')  # 3D(160x160x3)
             face_img = np.expand_dims(face_img, axis=0)
             yhat = embedder.embeddings(face_img)
             return yhat[0]  # 512D image (1x1x512)
 
-        # Loop through each image in the dataset X to get the embedding for the current image and append it to the list
         for img in X:
             EMBEDDED_X.append(get_embedding(img))
 
