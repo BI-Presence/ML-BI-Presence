@@ -93,9 +93,7 @@ class PredFacenetView(APIView):
                             type=openapi.TYPE_OBJECT,
                             properties={
                                 'UserID': openapi.Schema(type=openapi.TYPE_STRING, description='User ID'),
-                                'timestamp': openapi.Schema(type=openapi.TYPE_STRING, description='Timestamp'),
                                 'confidence': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, description='Confidence level'),
-                                'imageID': openapi.Schema(type=openapi.TYPE_INTEGER, description='Image ID'),
                             }
                         )
                     }
@@ -105,10 +103,8 @@ class PredFacenetView(APIView):
                         "error": "false",
                         "message": "success",
                         "predictionResult": {
-                            "UserID": "vicky",
-                            "timestamp": "2024-07-03T14:05:49.439126",
-                            "confidence": 0.9121062518765518,
-                            "imageID": 13
+                            "UserID": "18999687-c74f-419e-9377-8f4056b41612",
+                            "confidence": 99.79705214500427,
                         }
                     }
                 }
