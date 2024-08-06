@@ -51,7 +51,6 @@ To set up the project locally, follow these steps:
 
    ```bash
    python -m venv my_env
-   my_env\Scripts\activate # On MacOS: source my_env/bin/activate
 
    ```
 
