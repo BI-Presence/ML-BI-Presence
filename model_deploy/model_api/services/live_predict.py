@@ -52,7 +52,7 @@ def get_prediction(embedding):
     confidence_score = predict_proba[predicted_class]
 
     # Check confidence score and determine if the prediction should be considered unknown
-    if confidence_score < 0.9:
+    if confidence_score < 0.95:
         predicted_label = "96353642-2df9-45e9-a1ce-1fa3a9de26d0"
 
     confidence_percentage = confidence_score * 100
